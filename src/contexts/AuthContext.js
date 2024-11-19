@@ -56,7 +56,7 @@ export function AuthProvider({ children }) {
   }
 
   function forgotPassword(email) {
-    return sendPasswordResetEmail(auth, "dipakagarwal101505@gmail.com");
+    return sendPasswordResetEmail(auth, email);
   }
 
   useEffect(() => {

@@ -7,8 +7,9 @@ function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resetSent, setResetSent] = useState(false);
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, forgotPassword } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -28,7 +29,12 @@ function LoginPage() {
     <div className="auth-container">
       <div className="auth-box">
         <h2>Login</h2>
-        {error && <div className="auth-error">{error}</div>}
+        {error && <div className="error-message">{error}</div>}
+        {resetSent && (
+          <div className="success-message">
+            Password reset link has been sent to your email!
+          </div>
+        )}
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Email</label>
@@ -52,9 +58,13 @@ function LoginPage() {
             {loading ? 'Logging in...' : 'Login'}
           </button>
         </form>
-        {/* <div className="auth-links">
-          Need an account? <Link to="/signup">Sign Up</Link>
-        </div> */}
+        <div className="auth-links">
+          <div>
+            <Link to="/forgot-password" className="forgot-password-link">
+              Forgot Password?
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );
