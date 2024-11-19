@@ -66,3 +66,20 @@
   background: rgba(28, 28, 28, 0.9);
   border-radius: 4px;
 }
+
+.twitch-stream-container {
+  position: relative;
+  width: 100%;
+  max-width: 620px;
+  margin: 0 auto;
+  /* Make it responsive */
+  aspect-ratio: 620/378;
+}
+
+.twitch-stream-container iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}

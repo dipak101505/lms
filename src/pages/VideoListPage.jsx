@@ -1,18 +1,44 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, getCountFromServer } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 import { S3Client, ListObjectsV2Command, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 
 function VideoListPage() {
-  const { isAdmin } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [userCount, setUserCount] = useState(0);
   const [expandedSections, setExpandedSections] = useState({});
+  const [studentData, setStudentData] = useState(null);
 
+  // Fetch student data
+  useEffect(() => {
+    const fetchStudentData = async () => {
+      if (!user || isAdmin) return;
+      
+      try {
+        const studentsRef = collection(db, 'students');
+        const q = query(studentsRef, where('email', '==', user.email));
+        const querySnapshot = await getDocs(q);
+        
+        if (!querySnapshot.empty) {
+          setStudentData({
+            id: querySnapshot.docs[0].id,
+            ...querySnapshot.docs[0].data()
+          });
+        }
+      } catch (err) {
+        console.error('Error fetching student data:', err);
+        setError('Failed to fetch student data');
+      }
+    };
+
+    fetchStudentData();
+  }, [user, isAdmin]);
+
+  // Fetch videos
   useEffect(() => {
     const fetchVideos = async () => {
       try {
@@ -29,13 +55,22 @@ function VideoListPage() {
         });
 
         const response = await s3Client.send(command);
-        const videoFiles = response.Contents.filter(item => 
+        let videoFiles = response.Contents.filter(item => 
           item.Key.endsWith('.mp4')
         ).map(item => ({
           name: item.Key,
           lastModified: item.LastModified,
-          size: (item.Size / 1024 / 1024).toFixed(2) // Convert to MB
+          size: (item.Size / 1024 / 1024).toFixed(2)
         }));
+
+        // Filter videos based on student's batch and subjects if not admin
+        if (!isAdmin && studentData) {
+          videoFiles = videoFiles.filter(video => {
+            const [batch, subject] = video.name.split('/');
+            return studentData.batch === batch && 
+                   studentData.subjects.includes(subject);
+          });
+        }
 
         setVideos(videoFiles);
         setLoading(false);
@@ -46,22 +81,38 @@ function VideoListPage() {
       }
     };
 
-    fetchVideos();
-  }, []);
+    // Only fetch videos if we have student data (for non-admin users)
+    if (isAdmin || studentData) {
+      fetchVideos();
+    }
+  }, [isAdmin, studentData]);
 
-  useEffect(() => {
-    const fetchUserCount = async () => {
-      try {
-        const coll = collection(db, 'lmsUsers');
-        const snapshot = await getCountFromServer(coll);
-        setUserCount(snapshot.data().count);
-      } catch (err) {
-        console.error('Error fetching user count:', err);
-      }
-    };
+  const handleDelete = async (videoKey) => {
+    if (!window.confirm('Are you sure you want to delete this video?')) {
+      return;
+    }
 
-    fetchUserCount();
-  }, []);
+    try {
+      const s3Client = new S3Client({
+        region: process.env.REACT_APP_AWS_REGION,
+        credentials: {
+          accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
+        },
+      });
+
+      const command = new DeleteObjectCommand({
+        Bucket: 'zenithvideo',
+        Key: videoKey,
+      });
+
+      await s3Client.send(command);
+      setVideos(prevVideos => prevVideos.filter(v => v.name !== videoKey));
+    } catch (err) {
+      console.error('Error deleting video:', err);
+      alert('Failed to delete video: ' + err.message);
+    }
+  };
 
   // Organize videos into hierarchical structure
   const organizeVideos = () => {
@@ -90,54 +141,35 @@ function VideoListPage() {
     }));
   };
 
-  const handleDelete = async (videoKey) => {
-    if (!window.confirm('Are you sure you want to delete this video?')) {
-      return;
-    }
+  if (loading) {
+    return (
+      <div style={{ padding: '20px', textAlign: 'center' }}>
+        Loading videos...
+      </div>
+    );
+  }
 
-    try {
-      const s3Client = new S3Client({
-        region: process.env.REACT_APP_AWS_REGION,
-        credentials: {
-          accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
-          secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
-        },
-      });
+  if (error) {
+    return (
+      <div style={{ padding: '20px', color: 'red', textAlign: 'center' }}>
+        Error: {error}
+      </div>
+    );
+  }
 
-      const command = new DeleteObjectCommand({
-        Bucket: 'zenithvideo',
-        Key: videoKey,
-      });
-
-      await s3Client.send(command);
-      
-      // Update local state to remove the deleted video
-      setVideos(prevVideos => prevVideos.filter(v => v.name !== videoKey));
-    } catch (err) {
-      console.error('Error deleting video:', err);
-      alert('Failed to delete video: ' + err.message);
-    }
-  };
+  if (!isAdmin && !studentData) {
+    return (
+      <div style={{ padding: '20px', textAlign: 'center' }}>
+        No student data found for this account.
+      </div>
+    );
+  }
 
   const videoStructure = organizeVideos();
 
   return (
     <div style={{ padding: '20px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h1>Video Library</h1>
-        <div style={{ 
-          padding: '10px 20px', 
-          backgroundColor: '#f0f0f0', 
-          borderRadius: '5px',
-          fontSize: '16px',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-        }}>
-          Total Users: {userCount}
-        </div>
-      </div>
-      
-      {loading && <div>Loading videos...</div>}
-      {error && <div style={{ color: 'red' }}>Error: {error}</div>}
+      <h1>Video Library</h1>
       
       <div style={{ marginTop: '20px' }}>
         {Object.entries(videoStructure).map(([batch, subjects]) => (

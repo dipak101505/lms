@@ -17,12 +17,17 @@ function Navbar() {
   return (
     <nav className="navbar">
       <div className="nav-brand">
-        <Link to="/">Video Platform</Link>
+        <Link to="/">LMS</Link>
       </div>
       {user && <div className="nav-links">
-        {isAdmin && <Link to="/meetings">Meetings</Link>}
+        <Link to="/meetings">Meetings</Link>
         <Link to="/videos">Videos</Link>
-        {isAdmin && <Link to="/upload">Upload</Link>}
+        {isAdmin && (
+          <>
+            <Link to="/upload">Upload</Link>
+            <Link to="/students">Students</Link>
+          </>
+        )}
       </div>}
       {user && <div className="nav-auth">
         {user ? (
@@ -34,8 +39,6 @@ function Navbar() {
         ) : (
           <div>
             <Link to="/login">Login</Link>
-            
-            <Link to="/signup">Sign Up</Link>
           </div>
         )}
       </div>}

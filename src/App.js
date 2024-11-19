@@ -5,9 +5,9 @@ import UploadPage from './pages/UploadPage';
 import VideoListPage from './pages/VideoListPage';
 import VideoPlayer from './components/VideoPlayer';
 import LoginPage from './pages/LoginPage';
-import SignupPage from './pages/SignupPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import StudentManagementPage from './pages/StudentManagementPage';
 import Navbar from './components/Navbar';
 import PrivateRoute from './components/PrivateRoute';
 import { useAuth } from './contexts/AuthContext';
@@ -47,6 +47,11 @@ function App() {
               <PrivateRoute>
                 <VideoPlayer />
               </PrivateRoute>
+            } />
+            <Route path="/students" element={
+              <AdminRoute>
+                <StudentManagementPage />
+              </AdminRoute>
             } />
             <Route path="/change-password" element={
               <PrivateRoute>

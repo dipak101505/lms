@@ -3,6 +3,9 @@ import { S3Client } from '@aws-sdk/client-s3';
 import { Upload } from "@aws-sdk/lib-storage";
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../firebase/config';
+import { ListObjectsV2Command } from '@aws-sdk/client-s3';
 
 
 function UploadPage() {
@@ -15,6 +18,9 @@ function UploadPage() {
     topic: '',
     subtopic: '',
   });
+  const [batches, setBatches] = useState([]);
+  const [subjects, setSubjects] = useState([]);
+  const [topics, setTopics] = useState([]);
   const [file, setFile] = useState(null);
   const [uploadStatus, setUploadStatus] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -24,6 +30,70 @@ function UploadPage() {
   const uploadRef = useRef(null);
   const lastUploadedRef = useRef(0);
   const timeRef = useRef(Date.now());
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const batchesSnapshot = await getDocs(collection(db, 'batches'));
+        const subjectsSnapshot = await getDocs(collection(db, 'subjects'));
+        
+        setBatches(batchesSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })));
+        
+        setSubjects(subjectsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })));
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    const fetchTopics = async () => {
+      console.log('fetchTopics called with:', { batch: formData.batch, subject: formData.subject });
+
+      if (formData.batch && formData.subject) {
+        try {
+          const s3Client = new S3Client({
+            region: process.env.REACT_APP_AWS_REGION,
+            credentials: {
+              accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
+              secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
+            },
+          });
+
+          debugger;
+
+          const command = new ListObjectsV2Command({
+            Bucket: 'zenithvideo',
+            Prefix: `${formData.batch}/${formData.subject}/`
+          });
+
+          const response = await s3Client.send(command);
+          const uniqueTopics = new Set();
+          
+          response.Contents?.forEach(item => {
+            const parts = item.Key.split('/');
+            if (parts.length >= 3) {
+              uniqueTopics.add(parts[2]);
+            }
+          });
+
+          setTopics(Array.from(uniqueTopics));
+        } catch (error) {
+          console.error('Error fetching topics:', error);
+        }
+      }
+    };
+
+    fetchTopics();
+  }, [formData.batch, formData.subject]);
 
   if (!user) {
     return (
@@ -80,12 +150,16 @@ function UploadPage() {
   };
 
   const handleInputChange = (e) => {
+    debugger;
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: value,
+      // Clear topic-related fields when batch or subject changes
+      ...(name === 'batch' || name === 'subject' ? { topic: '', newTopic: '' } : {})
     }));
   };
+
 
   const cancelUpload = () => {
     if (uploadRef.current) {
@@ -104,6 +178,12 @@ function UploadPage() {
       return;
     }
 
+    // Check if topic is "new" but newTopic is empty
+    if (formData.topic === 'new' && !formData.newTopic) {
+      alert('Please enter a new topic name');
+      return;
+    }
+
     try {
       setUploadStatus('uploading');
       const s3Client = new S3Client({
@@ -114,7 +194,9 @@ function UploadPage() {
         },
       });
 
-      const folderPath = `${formData.batch}/${formData.subject}/${formData.topic}`;
+      const topicToUse = formData.topic === 'new' ? formData.newTopic : formData.topic;
+
+      const folderPath = `${formData.batch}/${formData.subject}/${topicToUse}`;
       const fileName = formData.subtopic ? 
         `${formData.subtopic}-${Date.now()}.mp4` : 
         `${Date.now()}.mp4`;
@@ -187,47 +269,80 @@ function UploadPage() {
         <div>
           <label style={{ display: 'block', marginBottom: '5px' }}>
             Batch *
-            <input
-              type="text"
+            <select
               name="batch"
               value={formData.batch}
               onChange={handleInputChange}
-              style={{ width: '100%', padding: '8px', marginTop: '5px' }}
               required
-              placeholder="Enter batch name"
-            />
+              style={{ width: '100%', padding: '8px', marginTop: '5px' }}
+            >
+              <option value="">Select Batch</option>
+              {batches.map(batch => (
+                <option key={batch.id} value={batch.name}>
+                  {batch.name}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
 
         <div>
           <label style={{ display: 'block', marginBottom: '5px' }}>
             Subject *
-            <input
-              type="text"
+            <select
               name="subject"
               value={formData.subject}
               onChange={handleInputChange}
-              style={{ width: '100%', padding: '8px', marginTop: '5px' }}
               required
-              placeholder="Enter subject name"
-            />
+              style={{ width: '100%', padding: '8px', marginTop: '5px' }}
+            >
+              <option value="">Select Subject</option>
+              {subjects.map(subject => (
+                <option key={subject.id} value={subject.name}>
+                  {subject.name}
+                </option>
+              ))}
+            </select>
           </label>
         </div>
 
         <div>
           <label style={{ display: 'block', marginBottom: '5px' }}>
             Topic *
-            <input
-              type="text"
+            <select
               name="topic"
               value={formData.topic}
               onChange={handleInputChange}
-              style={{ width: '100%', padding: '8px', marginTop: '5px' }}
               required
-              placeholder="Enter topic name"
-            />
+              style={{ width: '100%', padding: '8px', marginTop: '5px' }}
+            >
+              <option value="">Select Topic</option>
+              {topics.map(topic => (
+                <option key={topic} value={topic}>
+                  {topic}
+                </option>
+              ))}
+              <option value="new">+ Add New Topic</option>
+            </select>
           </label>
         </div>
+
+        {formData.topic === 'new' && (
+          <div>
+            <label style={{ display: 'block', marginBottom: '5px' }}>
+              New Topic Name *
+              <input
+                type="text"
+                name="newTopic"
+                value={formData.newTopic}
+                onChange={handleInputChange}
+                required
+                style={{ width: '100%', padding: '8px', marginTop: '5px' }}
+                placeholder="Enter new topic name"
+              />
+            </label>
+          </div>
+        )}
 
         <div>
           <label style={{ display: 'block', marginBottom: '5px' }}>
