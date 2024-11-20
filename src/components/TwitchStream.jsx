@@ -7,7 +7,7 @@ const TwitchStream = () => {
   return (
     <div className="twitch-stream-container">
       <iframe
-        src={`https://player.twitch.tv/?channel=dipakag&parent=${domain}&hide_controls=true&muted=false&controls=false&layout=video&offline_image_url=https://static-cdn.jtvnw.net/jtv_user_pictures/asmongold-channel_offline_image-f7ddcbd033e45dde-1920x1080.png&show_offline_screen=false`}
+        src={`https://player.twitch.tv/?channel=dipakag&parent=${domain}&hide_controls=true&muted=false&controls=false&layout=video&offline_image_url=https://static-cdn.jtvnw.net/jtv_user_pictures/asmongold-channel_offline_image-f7ddcbd033e45dde-1920x1080.png&show_offline_screen=true`}
         frameBorder="0"
         allowFullScreen={true}
         scrolling="no"

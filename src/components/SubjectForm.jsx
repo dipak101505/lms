@@ -14,15 +14,21 @@ const SubjectForm = ({ subjects, setSubjects }) => {
     e.preventDefault();
     setStatus('submitting');
 
+    // Format the name before saving
+    const formattedData = {
+      ...formData,
+      name: formData.name.charAt(0).toUpperCase() + formData.name.slice(1).toLowerCase()
+    };
+
     try {
       const subjectsRef = collection(db, 'subjects');
       const docRef = await addDoc(subjectsRef, {
-        ...formData,
+        ...formattedData,
         createdAt: new Date(),
         status: 'active'
       });
 
-      setSubjects([...subjects, { id: docRef.id, ...formData }]);
+      setSubjects([...subjects, { id: docRef.id, ...formattedData }]);
       setFormData({
         name: '',
         code: '',

@@ -13,6 +13,7 @@ import { initializeApp, deleteApp } from 'firebase/app';
 import { firebaseConfig } from '../firebase/config';
 
 const AuthContext = createContext({});
+const SESSION_DURATION = 4 * 60 * 60 * 1000; // 4 hours in milliseconds
 
 export function useAuth() {
   return useContext(AuthContext);
@@ -21,8 +22,23 @@ export function useAuth() {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [sessionTimeout, setSessionTimeout] = useState(null);
 
   const isAdmin = user?.email?.endsWith('@zenithadmin.com') || false;
+
+  const startSessionTimer = () => {
+    // Clear any existing timeout
+    if (sessionTimeout) {
+      clearTimeout(sessionTimeout);
+    }
+
+    // Set new timeout for 4 hours
+    const timeout = setTimeout(() => {
+      logout();
+    }, SESSION_DURATION);
+
+    setSessionTimeout(timeout);
+  };
 
   function signup(email, password) {
     return createUserWithEmailAndPassword(auth, email, password);
@@ -44,10 +60,17 @@ export function AuthProvider({ children }) {
   }
 
   function login(email, password) {
-    return signInWithEmailAndPassword(auth, email, password);
+    return signInWithEmailAndPassword(auth, email, password)
+      .then((result) => {
+        startSessionTimer();
+        return result;
+      });
   }
 
   function logout() {
+    if (sessionTimeout) {
+      clearTimeout(sessionTimeout);
+    }
     return signOut(auth);
   }
 
@@ -62,10 +85,18 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
+      if (user) {
+        startSessionTimer();
+      }
       setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      unsubscribe();
+      if (sessionTimeout) {
+        clearTimeout(sessionTimeout);
+      }
+    };
   }, []);
 
   const value = {

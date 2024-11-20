@@ -15,15 +15,30 @@ const BatchForm = ({ batches, setBatches }) => {
     e.preventDefault();
     setStatus('submitting');
 
+    // Format the name before saving
+    const formattedName = formData.name.charAt(0).toUpperCase() + formData.name.slice(1).toLowerCase();
+
+    // Check if batch name already exists
+    const batchExists = batches.some(
+      batch => batch.name.toLowerCase() === formattedName.toLowerCase()
+    );
+
+    if (batchExists) {
+      setStatus('error');
+      alert('A batch with this name already exists. Please choose a different name.');
+      return;
+    }
+
     try {
       const batchesRef = collection(db, 'batches');
       const docRef = await addDoc(batchesRef, {
         ...formData,
+        name: formattedName,
         createdAt: new Date(),
         status: 'active'
       });
 
-      setBatches([...batches, { id: docRef.id, ...formData }]);
+      setBatches([...batches, { id: docRef.id, ...formData, name: formattedName }]);
       setFormData({
         name: '',
         startDate: '',
