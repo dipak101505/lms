@@ -1,78 +1,22 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef } from 'react';
 import { TwitchPlayer } from 'react-twitch-embed';
 
 function TwitchStream() {
   const domain = window.location.hostname;
   const playerRef = useRef(null);
-  const [isMuted, setIsMuted] = useState(false);
   const tapTimeoutRef = useRef(null);
-  
-  useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = `
-      .twitch-embed {
-        background: #000 !important;
-      }
-
-      .twitch-embed iframe {
-        background: #000 !important;
-      }
-
-      [data-a-target="player-overlay-click-handler"],
-      [data-a-target="player-overlay"],
-      .video-player__overlay,
-      .tw-root--theme-dark .video-player,
-      .tw-root--theme-dark .video-player__overlay,
-      .video-player__default-player-overlay,
-      .player-logo,
-      .tw-svg__asset--inherit,
-      iframe [href*="twitch.tv"],
-      .player-controls__right-control-group,
-      [data-a-target="player-volume-slider"],
-      [data-a-target="player-mute-button"],
-      .player-buttons-right,
-      .volume-slider__slider-container {
-        display: none !important;
-      }
-
-      .video-player {
-        background-color: #000 !important;
-      }
-
-      [data-a-target="player-twitch-logo-button"],
-      .tw-absolute.tw-bottom-0.tw-right-0,
-      .tw-absolute.tw-right-0.tw-bottom-0,
-      .player-brand {
-        display: none !important;
-        opacity: 0 !important;
-        visibility: hidden !important;
-        pointer-events: none !important;
-      }
-    `;
-    
-    document.head.appendChild(style);
-    return () => document.head.removeChild(style);
-  }, []);
 
   const handleTap = (event) => {
     if (tapTimeoutRef.current === null) {
-      // First tap
+      // First tap - just start the timer
       tapTimeoutRef.current = setTimeout(() => {
-        // Single tap - toggle mute
-        if (playerRef.current) {
-          const newMutedState = !isMuted;
-          playerRef.current.setMuted(newMutedState);
-          setIsMuted(newMutedState);
-          playerRef.current.setVolume(1); // Keep volume at max
-        }
         tapTimeoutRef.current = null;
-      }, 300); // Wait for potential second tap
+      }, 300);
     } else {
-      // Double tap
+      // Double tap - toggle fullscreen
       clearTimeout(tapTimeoutRef.current);
       tapTimeoutRef.current = null;
       
-      // Toggle fullscreen
       if (document.fullscreenElement) {
         document.exitFullscreen();
       } else {
@@ -109,7 +53,7 @@ function TwitchStream() {
     maxWidth: '1200px',
     margin: '0 auto',
     backgroundColor: '#000',
-    cursor: 'pointer' // Add pointer cursor
+    cursor: 'pointer'
   };
 
   const wrapperStyle = {
@@ -132,8 +76,8 @@ function TwitchStream() {
     <div style={containerStyle} onClick={handleTap}>
       <div style={wrapperStyle}>
         <div style={playerContainerStyle}>
-          <TwitchPlayer 
-            {...options} 
+          <TwitchPlayer
+            {...options}
             onReady={(player) => {
               playerRef.current = player;
               player.setVolume(1);
