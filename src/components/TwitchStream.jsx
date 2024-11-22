@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { TwitchPlayer } from 'react-twitch-embed';
 
 function TwitchStream() {
@@ -6,14 +6,34 @@ function TwitchStream() {
   const playerRef = useRef(null);
   const tapTimeoutRef = useRef(null);
 
+  useEffect(() => {
+    const style = document.createElement('style');
+    style.textContent = `
+      .offline-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 1.2rem;
+        z-index: 1000;
+      }
+    `;
+    document.head.appendChild(style);
+    return () => document.head.removeChild(style);
+  }, []);
+
   const handleTap = (event) => {
     if (tapTimeoutRef.current === null) {
-      // First tap - just start the timer
       tapTimeoutRef.current = setTimeout(() => {
         tapTimeoutRef.current = null;
       }, 300);
     } else {
-      // Double tap - toggle fullscreen
       clearTimeout(tapTimeoutRef.current);
       tapTimeoutRef.current = null;
       
@@ -25,6 +45,16 @@ function TwitchStream() {
           playerElement.requestFullscreen();
         }
       }
+    }
+  };
+
+  const handleOffline = () => {
+    const container = document.querySelector('.player-container');
+    if (!container.querySelector('.offline-overlay')) {
+      const overlay = document.createElement('div');
+      overlay.className = 'offline-overlay';
+      overlay.textContent = 'Stream is currently offline';
+      container.appendChild(overlay);
     }
   };
 
@@ -75,14 +105,15 @@ function TwitchStream() {
   return (
     <div style={containerStyle} onClick={handleTap}>
       <div style={wrapperStyle}>
-        <div style={playerContainerStyle}>
+        <div className="player-container" style={playerContainerStyle}>
           <TwitchPlayer
             {...options}
             onReady={(player) => {
               playerRef.current = player;
-              player.setVolume(1);
+              player.setVolume(1.0);
               player.setMuted(false);
             }}
+            onOffline={handleOffline}
           />
         </div>
       </div>
