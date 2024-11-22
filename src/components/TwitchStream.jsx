@@ -53,7 +53,7 @@ function TwitchStream() {
     if (!container.querySelector('.offline-overlay')) {
       const overlay = document.createElement('div');
       overlay.className = 'offline-overlay';
-      overlay.textContent = 'Stream is currently offline';
+      overlay.textContent = 'Please revise your notes!';
       container.appendChild(overlay);
     }
   };

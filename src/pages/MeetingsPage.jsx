@@ -236,7 +236,7 @@ function MeetingsPage() {
             <div style={{ textAlign: 'center', marginTop: '20px' }}>
               {currentStreamData ? 
                 "You don't have access to this stream." :
-                "No active streams at the moment."
+                "The class has not started yet. Plese refresh the page in 5 min"
               }
             </div>
           )}
