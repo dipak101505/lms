@@ -7,7 +7,8 @@ import {
   onAuthStateChanged,
   updatePassword,
   sendPasswordResetEmail,
-  getAuth
+  getAuth,
+  sendEmailVerification
 } from 'firebase/auth';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { firebaseConfig } from '../firebase/config';
@@ -41,7 +42,14 @@ export function AuthProvider({ children }) {
   };
 
   function signup(email, password) {
-    return createUserWithEmailAndPassword(auth, email, password);
+    return createUserWithEmailAndPassword(auth, email, password)
+      .then(async (result) => {
+        // Send verification email
+        await sendEmailVerification(result.user);
+        // Sign out until email is verified
+        await signOut(auth);
+        return result;
+      });
   }
 
   function createUser(email, password) {
@@ -61,7 +69,12 @@ export function AuthProvider({ children }) {
 
   function login(email, password) {
     return signInWithEmailAndPassword(auth, email, password)
-      .then((result) => {
+      .then(async (result) => {
+        if (!result.user.emailVerified && !email.endsWith('@zenithadmin.com')) {
+          await signOut(auth);
+          throw new Error('Please verify your email before logging in');
+        }
+        
         startSessionTimer();
         return result;
       });
@@ -80,6 +93,10 @@ export function AuthProvider({ children }) {
 
   function forgotPassword(email) {
     return sendPasswordResetEmail(auth, email);
+  }
+
+  function isEmailVerified(user) {
+    return user?.emailVerified || false;
   }
 
   useEffect(() => {
@@ -107,7 +124,8 @@ export function AuthProvider({ children }) {
     login,
     logout,
     changePassword,
-    forgotPassword
+    forgotPassword,
+    isEmailVerified
   };
 
   return (

@@ -24,6 +24,7 @@
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0",
     "react-scripts": "5.0.1",
+    "react-twitch-embed": "^3.0.2",
     "stream-browserify": "^3.0.0",
     "util": "^0.12.5",
     "web-vitals": "^2.1.4"

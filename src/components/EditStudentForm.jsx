@@ -3,6 +3,7 @@ import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebase/config';
+import { getAuth } from 'firebase/auth';
 
 const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centres }) => {
   const [formData, setFormData] = useState({
@@ -14,11 +15,15 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
     enrollmentDate: student.enrollmentDate,
     imageUrl: student.imageUrl || '',
     class: student.class || '',
-    board: student.board || ''
+    board: student.board || '',
+    mobile: student.mobile || '',
+    address: student.address || '',
+    status: student.status || 'active'
   });
   const [status, setStatus] = useState('');
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(student.imageUrl);
+  const [isUploading, setIsUploading] = useState(false);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -115,6 +120,7 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
   const uploadImage = async () => {
     if (!imageFile) return formData.imageUrl;
 
+    setIsUploading(true);
     try {
       const processedImage = await addTextToImage(imageFile);
       const fileName = `student-images/${Date.now()}.jpg`;
@@ -125,6 +131,8 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
     } catch (error) {
       console.error('Error uploading image:', error);
       throw error;
+    } finally {
+      setIsUploading(false);
     }
   };
 
@@ -138,21 +146,58 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
     }
   };
 
+  const validateMobile = (mobile) => {
+    return /^[0-9]{10}$/.test(mobile);
+  };
+
+  const handleUserStatusToggle = async (uid, enabled) => {
+    try {
+      const auth = getAuth();
+      await auth.updateUser(uid, {
+        disabled: !enabled
+      });
+      return true;
+    } catch (error) {
+      console.error('Error updating user status:', error);
+      return false;
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!validateMobile(formData.mobile)) {
+      alert('Please enter a valid 10-digit mobile number');
+      return;
+    }
+    
     setStatus('submitting');
 
     try {
       const imageUrl = await uploadImage();
       
+      // Update Firestore document
       const studentRef = doc(db, 'students', student.id);
       await updateDoc(studentRef, {
         ...formData,
-        imageUrl,
+        imageUrl: imageUrl || formData.imageUrl,
         updatedAt: new Date()
       });
 
-      onUpdate({ id: student.id, ...formData, imageUrl });
+      // Update user authentication status if uid exists
+      if (student.uid) {
+        const success = await handleUserStatusToggle(student.uid, formData.status === 'active');
+        if (!success) {
+          alert('Warning: Student data updated but account status change failed');
+        }
+      }
+
+      onUpdate({ 
+        id: student.id, 
+        ...formData, 
+        imageUrl: imageUrl || formData.imageUrl 
+      });
+      
       setStatus('success');
       setTimeout(() => onClose(), 1500);
     } catch (error) {
@@ -182,9 +227,28 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
         maxWidth: '500px',
         width: '100%',
         maxHeight: '90vh',
-        overflowY: 'auto'
+        overflowY: 'auto',
+        position: 'relative'
       }}>
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            right: '10px',
+            top: '10px',
+            background: 'none',
+            border: 'none',
+            fontSize: '20px',
+            cursor: 'pointer',
+            padding: '5px'
+          }}
+        >
+          ×
+        </button>
         <h2>Edit Student</h2>
+        <div style={{ marginBottom: '15px', fontSize: '14px', color: '#666' }}>
+          Last Updated: {new Date(student.updatedAt?.toDate()).toLocaleString()}
+        </div>
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '15px' }}>
             <label style={{ display: 'block', marginBottom: '5px' }}>
@@ -303,7 +367,6 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
                 name="subjects"
                 value={formData.subjects}
                 onChange={handleSubjectsChange}
-                required
                 style={{ width: '100%', padding: '8px', height: '120px' }}
               >
                 {subjects.map(subject => (
@@ -334,6 +397,66 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
 
           <div style={{ marginBottom: '15px' }}>
             <label style={{ display: 'block', marginBottom: '5px' }}>
+              Mobile Number *
+              <input
+                type="tel"
+                name="mobile"
+                value={formData.mobile}
+                onChange={handleInputChange}
+                required
+                pattern="[0-9]{10}"
+                style={{ width: '100%', padding: '8px' }}
+              />
+              <small style={{ color: '#666', display: 'block', marginTop: '4px' }}>
+                Enter 10-digit mobile number
+              </small>
+            </label>
+          </div>
+
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '5px' }}>
+              Address *
+              <textarea
+                name="address"
+                value={formData.address}
+                onChange={handleInputChange}
+                required
+                style={{ 
+                  width: '100%', 
+                  padding: '8px',
+                  minHeight: '100px',
+                  resize: 'vertical'
+                }}
+              />
+            </label>
+          </div>
+
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '8px',
+              cursor: 'pointer' 
+            }}>
+              <input
+                type="checkbox"
+                name="status"
+                checked={formData.status === 'active'}
+                onChange={(e) => setFormData(prev => ({ 
+                  ...prev, 
+                  status: e.target.checked ? 'active' : 'inactive' 
+                }))}
+                style={{ width: '20px', height: '20px' }}
+              />
+              <span>Active Status</span>
+            </label>
+            <small style={{ color: '#666', display: 'block', marginTop: '4px' }}>
+              Inactive students will not be able to access the platform
+            </small>
+          </div>
+
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '5px' }}>
               Profile Image
               <input
                 type="file"
@@ -354,6 +477,11 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
                     borderRadius: '4px'
                   }}
                 />
+              </div>
+            )}
+            {isUploading && (
+              <div style={{ textAlign: 'center', marginTop: '10px' }}>
+                Uploading image...
               </div>
             )}
           </div>

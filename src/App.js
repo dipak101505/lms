@@ -10,12 +10,11 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import StudentManagementPage from './pages/StudentManagementPage';
 import Navbar from './components/Navbar';
 import PrivateRoute from './components/PrivateRoute';
-import { useAuth } from './contexts/AuthContext';
 import './styles/auth.css';
 import AdminRoute from './components/AdminRoute';
+import SignupPage from './pages/SignupPage';
 
 function App() {
-  const {user} = useAuth();
   return (
     <AuthProvider>
       <Router>
@@ -23,6 +22,7 @@ function App() {
           <Navbar />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignupPage />} />
             <Route path="/" element={
               <PrivateRoute>
                 <VideoListPage />
@@ -39,9 +39,9 @@ function App() {
               </AdminRoute>
             } />
             <Route path="/meetings" element={
-              <AdminRoute>
+              <PrivateRoute>
                 <MeetingsPage />
-              </AdminRoute>
+              </PrivateRoute>
             } />
             <Route path="/play/:videoKey" element={
               <PrivateRoute>

@@ -16,12 +16,17 @@ const StudentForm = ({ onStudentAdded, onClose, batches, subjects, centres }) =>
     enrollmentDate: new Date().toISOString().split('T')[0],
     imageUrl: '',
     class: '11',
-    board: ''
+    board: '',
+    mobile: '',
+    address: '',
+    password: '',
+    confirmPassword: ''
   });
   const [status, setStatus] = useState('');
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [passwordError, setPasswordError] = useState('');
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -145,26 +150,56 @@ const StudentForm = ({ onStudentAdded, onClose, batches, subjects, centres }) =>
     }
   };
 
+  const validatePasswords = () => {
+    if (formData.password.length < 6) {
+      setPasswordError('Password must be at least 6 characters long');
+      return false;
+    }
+    if (formData.password !== formData.confirmPassword) {
+      setPasswordError('Passwords do not match');
+      return false;
+    }
+    setPasswordError('');
+    return true;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus('submitting');
 
+    if (!validatePasswords()) {
+      setStatus('error');
+      return;
+    }
+
     try {
-      // Upload image first
+      // Create Firebase auth user first
+      const userCredential = await createUser(formData.email, formData.password);
+      const uid = userCredential.user.uid;
+
+      // Upload image
       const imageUrl = await uploadImage();
       
-      // Add student with image URL
+      // Create a new object without password fields
+      const { password, confirmPassword, ...studentData } = formData;
+      
+      // Create timestamp for both createdAt and updatedAt
+      const timestamp = new Date();
+
+      // Add student with image URL and uid
       const studentsRef = collection(db, 'students');
       const docRef = await addDoc(studentsRef, {
-        ...formData,
+        ...studentData,
+        uid,
         imageUrl,
-        createdAt: new Date(),
+        createdAt: timestamp,
+        updatedAt: timestamp,
         status: 'active'
       });
 
       const newStudent = { 
         id: docRef.id, 
-        ...formData,
+        ...studentData,
         imageUrl 
       };
       
@@ -212,6 +247,45 @@ const StudentForm = ({ onStudentAdded, onClose, batches, subjects, centres }) =>
             />
           </label>
         </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px' }}>
+            Password *
+            <input
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleInputChange}
+              required
+              minLength="6"
+              style={{ width: '100%', padding: '8px' }}
+            />
+            <small style={{ color: '#666', display: 'block', marginTop: '4px' }}>
+              Password must be at least 6 characters long
+            </small>
+          </label>
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px' }}>
+            Confirm Password *
+            <input
+              type="password"
+              name="confirmPassword"
+              value={formData.confirmPassword}
+              onChange={handleInputChange}
+              required
+              minLength="6"
+              style={{ width: '100%', padding: '8px' }}
+            />
+          </label>
+        </div>
+
+        {passwordError && (
+          <div style={{ color: 'red', marginBottom: '15px', textAlign: 'center' }}>
+            {passwordError}
+          </div>
+        )}
 
         <div style={{ marginBottom: '15px' }}>
           <label style={{ display: 'block', marginBottom: '5px' }}>
@@ -302,7 +376,6 @@ const StudentForm = ({ onStudentAdded, onClose, batches, subjects, centres }) =>
               name="subjects"
               value={formData.subjects}
               onChange={handleSubjectsChange}
-              required
               style={{ width: '100%', padding: '8px', height: '120px' }}
             >
               {subjects.map(subject => (
@@ -327,6 +400,42 @@ const StudentForm = ({ onStudentAdded, onClose, batches, subjects, centres }) =>
               onChange={handleInputChange}
               required
               style={{ width: '100%', padding: '8px' }}
+            />
+          </label>
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px' }}>
+            Mobile Number *
+            <input
+              type="tel"
+              name="mobile"
+              value={formData.mobile}
+              onChange={handleInputChange}
+              required
+              pattern="[0-9]{10}"
+              style={{ width: '100%', padding: '8px' }}
+            />
+            <small style={{ color: '#666', display: 'block', marginTop: '4px' }}>
+              Enter 10-digit mobile number
+            </small>
+          </label>
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px' }}>
+            Address *
+            <textarea
+              name="address"
+              value={formData.address}
+              onChange={handleInputChange}
+              required
+              style={{ 
+                width: '100%', 
+                padding: '8px',
+                minHeight: '100px',
+                resize: 'vertical'
+              }}
             />
           </label>
         </div>
