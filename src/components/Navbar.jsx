@@ -13,11 +13,11 @@ function Navbar() {
       console.error('Failed to log out:', error);
     }
   };
-
+  
   return (
     <nav className="navbar">
       <div className="nav-brand">
-        <Link to="/">ZENITH LMS</Link>
+        <Link to="/">ZENITH</Link>
       </div>
       {user && <div className="nav-links">
         <Link to="/meetings">Meetings</Link>
@@ -32,14 +32,53 @@ function Navbar() {
       {user && <div className="nav-auth">
         {user ? (
           <div className="user-menu">
-            <span>{user.email}</span>
-            <Link to="/change-password">Change Password</Link>
-            <button onClick={handleLogout}>Logout</button>
+            <Link 
+              to="/change-password" 
+              style={{ 
+                color: '#ffa600', 
+                textDecoration: 'none',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+              onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+            >
+              Password
+            </Link>
+            <button 
+              onClick={handleLogout}
+              style={{
+                padding: '0.5rem 1rem',
+                backgroundColor: '#ffa600',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = 'white';
+                e.target.style.color = '#ffa600';
+                e.target.style.border = '1px solid #ffa600';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = '#ffa600';
+                e.target.style.color = 'white';
+                e.target.style.border = 'none';
+              }}
+            >
+              Logout
+            </button>
           </div>
         ) : (
-          <div>
-            <Link to="/login">Login</Link>
-          </div>
+          <Link 
+            to="/login" 
+            style={{ 
+              color: '#ffa600', 
+              textDecoration: 'none' 
+            }}
+          >
+            Login
+          </Link>
         )}
       </div>}
     </nav>

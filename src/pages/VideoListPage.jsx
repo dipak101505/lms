@@ -114,21 +114,33 @@ function VideoListPage() {
     }
   };
 
-  // Organize videos into hierarchical structure
+  // Organize videos into hierarchical structure based on user role
   const organizeVideos = () => {
     const structure = {};
     
     videos.forEach(video => {
       const [batch, subject, topic, filename] = video.name.split('/');
       
-      if (!structure[batch]) structure[batch] = {};
-      if (!structure[batch][subject]) structure[batch][subject] = {};
-      if (!structure[batch][subject][topic]) structure[batch][subject][topic] = [];
-      
-      structure[batch][subject][topic].push({
-        ...video,
-        filename
-      });
+      if (isAdmin) {
+        // Admin view - show all levels including batch
+        if (!structure[batch]) structure[batch] = {};
+        if (!structure[batch][subject]) structure[batch][subject] = {};
+        if (!structure[batch][subject][topic]) structure[batch][subject][topic] = [];
+        
+        structure[batch][subject][topic].push({
+          ...video,
+          filename
+        });
+      } else {
+        // Student view - skip batch level
+        if (!structure[subject]) structure[subject] = {};
+        if (!structure[subject][topic]) structure[subject][topic] = [];
+        
+        structure[subject][topic].push({
+          ...video,
+          filename
+        });
+      }
     });
 
     return structure;
@@ -139,6 +151,23 @@ function VideoListPage() {
       ...prev,
       [path]: !prev[path]
     }));
+  };
+
+  const formatVideoName = (filename) => {
+    // Remove the extension first
+    const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
+    
+    // Find the last occurrence of hyphen and take everything before it
+    const lastHyphenIndex = nameWithoutExt.lastIndexOf('-');
+    const name = lastHyphenIndex !== -1 
+      ? nameWithoutExt.substring(0, lastHyphenIndex) 
+      : nameWithoutExt;
+    
+    // Capitalize first letter of each word
+    return name
+      .split(/[_]/)  // Only split by underscores, keeping hyphens in the name
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
   };
 
   if (loading) {
@@ -172,117 +201,118 @@ function VideoListPage() {
       <h1>Video Library</h1>
       
       <div style={{ marginTop: '20px' }}>
-        {Object.entries(videoStructure).map(([batch, subjects]) => (
-          <div key={batch} className="batch-section" style={{ marginBottom: '20px' }}>
-            <div 
-              onClick={() => toggleSection(batch)}
-              style={{
-                padding: '10px',
-                backgroundColor: '#f8f9fa',
-                cursor: 'pointer',
-                borderRadius: '5px',
-                display: 'flex',
-                alignItems: 'center',
-                fontWeight: 'bold'
-              }}
-            >
-              <span style={{ 
-                transform: expandedSections[batch] ? 'rotate(90deg)' : 'rotate(0deg)',
-                transition: 'transform 0.3s',
-                display: 'inline-block',
-                marginRight: '10px'
-              }}>▶</span>
-              {batch}
-            </div>
-            
-            {expandedSections[batch] && (
-              <div style={{ marginLeft: '20px' }}>
-                {Object.entries(subjects).map(([subject, topics]) => (
-                  <div key={subject} style={{ marginTop: '10px' }}>
-                    <div 
-                      onClick={() => toggleSection(`${batch}/${subject}`)}
-                      style={{
-                        padding: '8px',
-                        backgroundColor: '#fff',
-                        cursor: 'pointer',
-                        borderRadius: '4px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        fontWeight: '500'
-                      }}
-                    >
-                      <span style={{ 
-                        transform: expandedSections[`${batch}/${subject}`] ? 'rotate(90deg)' : 'rotate(0deg)',
-                        transition: 'transform 0.3s',
-                        display: 'inline-block',
-                        marginRight: '10px'
-                      }}>▶</span>
-                      {subject}
-                    </div>
-                    
-                    {expandedSections[`${batch}/${subject}`] && (
-                      <div style={{ marginLeft: '20px' }}>
-                        {Object.entries(topics).map(([topic, videos]) => (
-                          <div key={topic} style={{ marginTop: '10px' }}>
-                            <div 
-                              onClick={() => toggleSection(`${batch}/${subject}/${topic}`)}
-                              style={{
-                                padding: '6px',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center'
-                              }}
-                            >
-                              <span style={{ 
-                                transform: expandedSections[`${batch}/${subject}/${topic}`] ? 'rotate(90deg)' : 'rotate(0deg)',
-                                transition: 'transform 0.3s',
-                                display: 'inline-block',
-                                marginRight: '10px'
-                              }}>▶</span>
-                              {topic}
-                            </div>
-                            
-                            {expandedSections[`${batch}/${subject}/${topic}`] && (
-                              <div style={{ marginLeft: '30px' }}>
-                                {videos.map((video) => (
-                                  <div
-                                    key={video.name}
-                                    style={{
-                                      padding: '10px',
-                                      marginTop: '5px',
-                                      backgroundColor: '#fff',
-                                      borderRadius: '4px',
-                                      display: 'flex',
-                                      justifyContent: 'space-between',
-                                      alignItems: 'center',
-                                      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                                    }}
-                                  >
-                                    <div>
-                                      <div style={{ fontSize: '14px', color: '#333' }}>
-                                        {video.filename}
-                                      </div>
-                                      <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                                        Size: {video.size} MB | 
-                                        Last Modified: {new Date(video.lastModified).toLocaleString()}
-                                      </div>
-                                    </div>
-                                    <div style={{ display: 'flex', gap: '10px' }}>
+        {isAdmin ? (
+          // Admin View - With Batch Level
+          Object.entries(videoStructure).map(([batch, subjects]) => (
+            <div key={batch} className="batch-section" style={{ marginBottom: '20px' }}>
+              <div 
+                onClick={() => toggleSection(batch)}
+                style={{
+                  padding: '10px',
+                  backgroundColor: '#f8f9fa',
+                  cursor: 'pointer',
+                  borderRadius: '5px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  fontWeight: 'bold'
+                }}
+              >
+                <span style={{ 
+                  transform: expandedSections[batch] ? 'rotate(90deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.3s',
+                  display: 'inline-block',
+                  marginRight: '10px'
+                }}>▶</span>
+                {batch}
+              </div>
+              
+              {expandedSections[batch] && (
+                <div style={{ marginLeft: '20px' }}>
+                  {Object.entries(subjects).map(([subject, topics]) => (
+                    <div key={subject} style={{ marginTop: '10px' }}>
+                      <div 
+                        onClick={() => toggleSection(`${batch}/${subject}`)}
+                        style={{
+                          padding: '8px',
+                          backgroundColor: '#fff',
+                          cursor: 'pointer',
+                          borderRadius: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          fontWeight: '500'
+                        }}
+                      >
+                        <span style={{ 
+                          transform: expandedSections[`${batch}/${subject}`] ? 'rotate(90deg)' : 'rotate(0deg)',
+                          transition: 'transform 0.3s',
+                          display: 'inline-block',
+                          marginRight: '10px'
+                        }}>▶</span>
+                        {subject}
+                      </div>
+                      
+                      {expandedSections[`${batch}/${subject}`] && (
+                        <div style={{ marginLeft: '20px' }}>
+                          {Object.entries(topics).map(([topic, videos]) => (
+                            <div key={topic} style={{ marginTop: '10px' }}>
+                              <div 
+                                onClick={() => toggleSection(`${batch}/${subject}/${topic}`)}
+                                style={{
+                                  padding: '6px',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center'
+                                }}
+                              >
+                                <span style={{ 
+                                  transform: expandedSections[`${batch}/${subject}/${topic}`] ? 'rotate(90deg)' : 'rotate(0deg)',
+                                  transition: 'transform 0.3s',
+                                  display: 'inline-block',
+                                  marginRight: '10px'
+                                }}>▶</span>
+                                {topic}
+                              </div>
+                              
+                              {expandedSections[`${batch}/${subject}/${topic}`] && (
+                                <div style={{ marginLeft: '30px' }}>
+                                  {videos.map((video) => (
+                                    <div
+                                      key={video.name}
+                                      style={{
+                                        padding: '10px',
+                                        marginTop: '5px',
+                                        backgroundColor: '#fff',
+                                        borderRadius: '4px',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                      }}
+                                    >
                                       <Link 
                                         to={`/play/${encodeURIComponent(video.name)}`}
                                         style={{
-                                          padding: '6px 12px',
-                                          backgroundColor: '#0066FF',
-                                          color: 'white',
                                           textDecoration: 'none',
-                                          borderRadius: '4px',
-                                          fontSize: '14px',
-                                          transition: 'background-color 0.2s'
+                                          width: '100%'
                                         }}
-                                        onMouseOver={(e) => e.target.style.backgroundColor = '#0052cc'}
-                                        onMouseOut={(e) => e.target.style.backgroundColor = '#0066FF'}
                                       >
-                                        Play
+                                        <div>
+                                          <div style={{ 
+                                            fontSize: '14px', 
+                                            color: '#333',
+                                            cursor: 'pointer',
+                                            transition: 'color 0.2s ease'
+                                          }}
+                                          onMouseEnter={(e) => e.target.style.color = '#ffa600'}
+                                          onMouseLeave={(e) => e.target.style.color = '#333'}
+                                          >
+                                            {formatVideoName(video.filename)}
+                                          </div>
+                                          <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                                            Size: {video.size} MB | 
+                                            Last Modified: {new Date(video.lastModified).toLocaleString()}
+                                          </div>
+                                        </div>
                                       </Link>
                                       {isAdmin && (
                                         <button
@@ -295,6 +325,7 @@ function VideoListPage() {
                                             borderRadius: '4px',
                                             fontSize: '14px',
                                             cursor: 'pointer',
+                                            marginLeft: '10px',
                                             transition: 'background-color 0.2s'
                                           }}
                                           onMouseOver={(e) => e.target.style.backgroundColor = '#c82333'}
@@ -304,20 +335,138 @@ function VideoListPage() {
                                         </button>
                                       )}
                                     </div>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))
+        ) : (
+          // Student View - Start from Subject Level
+          Object.entries(videoStructure).map(([subject, topics]) => (
+            <div key={subject} style={{ marginBottom: '20px' }}>
+              <div 
+                onClick={() => toggleSection(subject)}
+                style={{
+                  padding: '10px',
+                  backgroundColor: '#f8f9fa',
+                  cursor: 'pointer',
+                  borderRadius: '5px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  fontWeight: 'bold'
+                }}
+              >
+                <span style={{ 
+                  transform: expandedSections[subject] ? 'rotate(90deg)' : 'rotate(0deg)',
+                  transition: 'transform 0.3s',
+                  display: 'inline-block',
+                  marginRight: '10px'
+                }}>▶</span>
+                {subject}
               </div>
-            )}
-          </div>
-        ))}
+              
+              {expandedSections[subject] && (
+                <div style={{ marginLeft: '20px' }}>
+                  {Object.entries(topics).map(([topic, videos]) => (
+                    <div key={topic} style={{ marginTop: '10px' }}>
+                      <div 
+                        onClick={() => toggleSection(`${subject}/${topic}`)}
+                        style={{
+                          padding: '6px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <span style={{ 
+                          transform: expandedSections[`${subject}/${topic}`] ? 'rotate(90deg)' : 'rotate(0deg)',
+                          transition: 'transform 0.3s',
+                          display: 'inline-block',
+                          marginRight: '10px'
+                        }}>▶</span>
+                        {topic}
+                      </div>
+                      
+                      {expandedSections[`${subject}/${topic}`] && (
+                        <div style={{ marginLeft: '30px' }}>
+                          {videos.map((video) => (
+                            <div
+                              key={video.name}
+                              style={{
+                                padding: '10px',
+                                marginTop: '5px',
+                                backgroundColor: '#fff',
+                                borderRadius: '4px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                              }}
+                            >
+                              <Link 
+                                to={`/play/${encodeURIComponent(video.name)}`}
+                                style={{
+                                  textDecoration: 'none',
+                                  width: '100%'
+                                }}
+                              >
+                                <div>
+                                  <div style={{ 
+                                    fontSize: '14px', 
+                                    color: '#333',
+                                    cursor: 'pointer',
+                                    transition: 'color 0.2s ease'
+                                  }}
+                                  onMouseEnter={(e) => e.target.style.color = '#ffa600'}
+                                  onMouseLeave={(e) => e.target.style.color = '#333'}
+                                  >
+                                    {formatVideoName(video.filename)}
+                                  </div>
+                                  <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                                    Size: {video.size} MB | 
+                                    Last Modified: {new Date(video.lastModified).toLocaleString()}
+                                  </div>
+                                </div>
+                              </Link>
+                              {isAdmin && (
+                                <button
+                                  onClick={() => handleDelete(video.name)}
+                                  style={{
+                                    padding: '6px 12px',
+                                    backgroundColor: '#dc3545',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    fontSize: '14px',
+                                    cursor: 'pointer',
+                                    marginLeft: '10px',
+                                    transition: 'background-color 0.2s'
+                                  }}
+                                  onMouseOver={(e) => e.target.style.backgroundColor = '#c82333'}
+                                  onMouseOut={(e) => e.target.style.backgroundColor = '#dc3545'}
+                                >
+                                  Delete
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
