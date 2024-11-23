@@ -29,6 +29,8 @@ function SignupPage() {
   const navigate = useNavigate();
   const [batches, setBatches] = useState([]);
   const [centres, setCentres] = useState([]);
+  const [isHovered, setIsHovered] = useState(false);
+  const [imageButtonHovered, setImageButtonHovered] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -65,6 +67,18 @@ function SignupPage() {
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Check file size (limit to 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Image size should be less than 5MB');
+        return;
+      }
+
+      // Check file type
+      if (!file.type.startsWith('image/')) {
+        setError('Please select an image file');
+        return;
+      }
+
       setSelectedImage(file);
       // Create a preview URL
       const reader = new FileReader();
@@ -193,6 +207,10 @@ function SignupPage() {
       await addDoc(studentsRef, studentData);
       
       setVerificationSent(true);
+      
+      // Add navigation after successful signup
+      navigate('/login');
+      
     } catch (err) {
       setError('Failed to create account: ' + err.message);
     }
@@ -200,210 +218,373 @@ function SignupPage() {
   };
 
   return (
-    <div className="auth-container">
-      <div className="auth-box">
-        <h2>Student Registration</h2>
+    <div style={{
+      display: 'flex',
+      alignItems: 'center',
+      height: '100vh',
+      gap: '1rem',
+      padding: '0 2rem',
+      overflow: 'hidden',
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0
+    }}>
+      <div style={{
+        background: 'white',
+        padding: '1rem',
+        borderRadius: '8px',
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+        width: '100%',
+        maxWidth: '600px',
+        maxHeight: '90vh',
+        overflowY: 'auto',
+        marginTop: '1rem'
+      }}>
+        {/* Logo and Title */}
+        <div style={{ 
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          marginBottom: '0.5rem',
+          marginTop: '0rem'
+        }}>
+          {/* <img 
+            src="logo for website.png" 
+            alt="Logo" 
+            style={{
+              width: '120px',
+              height: 'auto',
+              marginBottom: '0rem'
+            }}
+          /> */}
+          <h2 style={{ color: '#666666', marginTop: '0rem' }}>Student Registration</h2>
+        </div>
+
+        {error && <div style={{ color: 'red', marginBottom: '1rem' }}>{error}</div>}
         
-        {verificationSent ? (
-          <div className="verification-sent">
-            <h3>Verify Your Email</h3>
-            <p>A verification link has been sent to {formData.email}</p>
-            <p>Please check your email and verify your account before logging in.</p>
-            <p>Your account will be reviewed by an administrator.</p>
-            <button 
-              onClick={() => navigate('/login')}
-              className="auth-button"
-            >
-              Go to Login
-            </button>
-          </div>
-        ) : (
-          <>
-            {error && <div className="error-message">{error}</div>}
-            <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>Full Name *</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData({...formData, name: e.target.value})}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Email *</label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Mobile Number *</label>
-                <input
-                  type="tel"
-                  value={formData.mobile}
-                  onChange={(e) => setFormData({...formData, mobile: e.target.value})}
-                  required
-                  pattern="[0-9]{10}"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Class *</label>
-                <select
-                  name="class"
-                  value={formData.class}
-                  onChange={(e) => setFormData({...formData, class: e.target.value})}
-                  required
-                  style={{ width: '100%', padding: '8px' }}
-                >
-                  <option value="">Select Class</option>
-                  {[...Array(12)].map((_, i) => (
-                    <option key={i + 1} value={i + 1}>
-                      Class {i + 1}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Board *</label>
-                <select
-                  name="board"
-                  value={formData.board}
-                  onChange={(e) => setFormData({...formData, board: e.target.value})}
-                  required
-                  style={{ width: '100%', padding: '8px' }}
-                >
-                  <option value="">Select Board</option>
-                  <option value="CBSE">CBSE</option>
-                  <option value="ICSE">ICSE</option>
-                  <option value="WB">WB</option>
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Address</label>
-                <textarea
-                  value={formData.address}
-                  onChange={(e) => setFormData({...formData, address: e.target.value})}
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Password *</label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Confirm Password *</label>
-                <input
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
-                  required
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Profile Picture</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  {formData.imagePreview && (
-                    <img
-                      src={formData.imagePreview}
-                      alt="Preview"
-                      style={{
-                        width: '60px',
-                        height: '60px',
-                        borderRadius: '50%',
-                        objectFit: 'cover'
-                      }}
-                    />
-                  )}
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleImageChange}
-                    accept="image/*"
-                    style={{ display: 'none' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current.click()}
-                    style={{
-                      padding: '8px 16px',
-                      backgroundColor: '#f0f0f0',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Choose Image
-                  </button>
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label>Batch *</label>
-                <select
-                  name="batch"
-                  value={formData.batch}
-                  onChange={(e) => setFormData({...formData, batch: e.target.value})}
-                  required
-                  style={{ width: '100%', padding: '8px' }}
-                >
-                  <option value="">Select Batch</option>
-                  {batches.map(batch => (
-                    <option key={batch.id} value={batch.name}>
-                      {batch.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Centres *</label>
-                <select
-                  multiple
-                  name="centres"
-                  value={formData.centres}
-                  onChange={handleCentresChange}
-                  required
-                  style={{ width: '100%', padding: '8px', height: '120px' }}
-                >
-                  {centres.map(centre => (
-                    <option key={centre.id} value={centre.name}>
-                      {centre.name}
-                    </option>
-                  ))}
-                </select>
-                <small style={{ color: '#666', display: 'block', marginTop: '4px' }}>
-                  Hold Ctrl (Cmd on Mac) to select multiple centres
-                </small>
-              </div>
-
-              <button 
-                type="submit" 
-                disabled={loading}
-                className="auth-button"
-              >
-                {loading ? 'Creating Account...' : 'Register'}
-              </button>
-            </form>
-            <div className="auth-links">
-              Already have an account? <Link to="/login">Log In</Link>
+        <form onSubmit={handleSubmit}>
+          {/* Personal Information Section */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: '1fr 1fr',
+            gap: '0.5rem',
+            marginBottom: '0.5rem'
+          }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>Full Name *</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({...formData, name: e.target.value})}
+                required
+                style={{
+                  width: '80%',
+                  padding: '0.5rem',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc'
+                }}
+              />
             </div>
-          </>
-        )}
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>Email *</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                required
+                style={{
+                  width: '80%',
+                  padding: '0.5rem',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc'
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Contact Information Section */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: '1fr 1fr',
+            gap: '1rem',
+            marginBottom: '0.5rem'
+          }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>Mobile Number *</label>
+              <input
+                type="tel"
+                value={formData.mobile}
+                onChange={(e) => setFormData({...formData, mobile: e.target.value})}
+                required
+                pattern="[0-9]{10}"
+                style={{
+                  width: '80%',
+                  padding: '0.5rem',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc'
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>Address</label>
+              <input
+                type="text"
+                value={formData.address}
+                onChange={(e) => setFormData({...formData, address: e.target.value})}
+                style={{
+                  width: '80%',
+                  padding: '0.5rem',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc'
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Academic Information Section */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: '1fr 1fr',
+            gap: '1rem',
+            marginBottom: '0.5rem'
+          }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>Class *</label>
+              <select
+                value={formData.class}
+                onChange={(e) => setFormData({...formData, class: e.target.value})}
+                required
+                style={{
+                  width: '70%',
+                  padding: '0.5rem',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc',
+                  backgroundColor: 'white'
+                }}
+              >
+                <option value="">Select Class</option>
+                {[...Array(12)].map((_, i) => (
+                  <option key={i + 1} value={i + 1}>Class {i + 1}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>Board *</label>
+              <select
+                value={formData.board}
+                onChange={(e) => setFormData({...formData, board: e.target.value})}
+                required
+                style={{
+                  width: '70%',
+                  padding: '0.5rem',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc',
+                  backgroundColor: 'white'
+                }}
+              >
+                <option value="">Select Board</option>
+                <option value="CBSE">CBSE</option>
+                <option value="ICSE">ICSE</option>
+                <option value="WB">WB</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Batch and Centre Section */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: '1fr 1fr',
+            gap: '1rem',
+            marginBottom: '0.5rem'
+          }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>Batch *</label>
+              <select
+                value={formData.batch}
+                onChange={(e) => setFormData({...formData, batch: e.target.value})}
+                required
+                style={{
+                  width: '70%',
+                  padding: '0.5rem',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc',
+                  backgroundColor: 'white'
+                }}
+              >
+                <option value="">Select Batch</option>
+                {batches.map(batch => (
+                  <option key={batch.id} value={batch.name}>{batch.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>Centre *</label>
+              <select
+                value={formData.centres[0] || ''}
+                onChange={(e) => setFormData({...formData, centres: [e.target.value]})}
+                required
+                style={{
+                  width: '70%',
+                  padding: '0.5rem',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc',
+                  backgroundColor: 'white'
+                }}
+              >
+                <option value="">Select Centre</option>
+                {centres.map(centre => (
+                  <option key={centre.id} value={centre.name}>{centre.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Password Section */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: '1fr 1fr',
+            gap: '1rem',
+            marginBottom: '0.5rem'
+          }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>Password *</label>
+              <input
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                required
+                style={{
+                  width: '80%',
+                  padding: '0.5rem',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc'
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>Confirm Password *</label>
+              <input
+                type="password"
+                value={formData.confirmPassword}
+                onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})}
+                required
+                style={{
+                  width: '80%',
+                  padding: '0.5rem',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc'
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Add this section after the Password Section and before Submit Button */}
+          <div style={{ marginBottom: '0.5rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem' }}>Profile Picture *</label>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '1rem',
+              width: '70%' 
+            }}>
+              {formData.imagePreview && (
+                <img
+                  src={formData.imagePreview}
+                  alt="Preview"
+                  style={{
+                    width: '60px',
+                    height: '60px',
+                    borderRadius: '50%',
+                    objectFit: 'cover',
+                    border: '1px solid #ccc'
+                  }}
+                />
+              )}
+              <input
+                type="file"
+                ref={fileInputRef}
+                required
+                onChange={handleImageChange}
+                accept="image/*"
+                style={{ display: 'none' }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current.click()}
+                onMouseEnter={() => setImageButtonHovered(true)}
+                onMouseLeave={() => setImageButtonHovered(false)}
+                style={{
+                  width: '70%',
+                  padding: '0.5rem 1rem',
+                  backgroundColor: imageButtonHovered ? '#ffa600' : '#f0f0f0',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {formData.imagePreview ? 'Change Image' : 'Choose Image'}
+              </button>
+            </div>
+          </div>
+
+          {/* Submit Button */}
+          <button 
+            type="submit" 
+            disabled={loading}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              backgroundColor: isHovered ? 'white' : '#ffa600',
+              color: isHovered ? '#ffa600' : 'white',
+              border: isHovered ? '1px solid #ffa600' : 'none',
+              borderRadius: '4px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'all 0.2s ease',
+              marginTop: '1rem'
+            }}
+          >
+            {loading ? 'Creating Account...' : 'Register'}
+          </button>
+        </form>
+
+        {/* Login Link */}
+        <div style={{ marginTop: '1rem', textAlign: 'center' }}>
+          Already have an account? {' '}
+          <Link to="/login" style={{ color: '#ffa600', textDecoration: 'none' }}>
+            Log In
+          </Link>
+        </div>
+      </div>
+
+      {/* Right side image */}
+      <div style={{
+        flex: 1,
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        overflow: 'hidden'
+      }}>
+        <img 
+          src="login.jpg" 
+          alt="Login" 
+          style={{
+            maxWidth: '80%',
+            maxHeight: '80%',
+            objectFit: 'contain',
+            borderRadius: '8px'
+          }}
+        />
       </div>
     </div>
   );

@@ -17,7 +17,7 @@ function Navbar() {
   return (
     <nav className="navbar">
       <div className="nav-brand">
-        <Link to="/">LMS</Link>
+        <Link to="/">ZENITH LMS</Link>
       </div>
       {user && <div className="nav-links">
         <Link to="/meetings">Meetings</Link>
