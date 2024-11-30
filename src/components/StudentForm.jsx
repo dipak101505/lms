@@ -20,7 +20,9 @@ const StudentForm = ({ onStudentAdded, onClose, batches, subjects, centres }) =>
     mobile: '',
     address: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    dob: '',
+    school: ''
   });
   const [status, setStatus] = useState('');
   const [imageFile, setImageFile] = useState(null);
@@ -436,6 +438,34 @@ const StudentForm = ({ onStudentAdded, onClose, batches, subjects, centres }) =>
                 minHeight: '100px',
                 resize: 'vertical'
               }}
+            />
+          </label>
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px' }}>
+            Date of Birth *
+            <input
+              type="date"
+              name="dob"
+              value={formData.dob}
+              onChange={handleInputChange}
+              required
+              style={{ width: '100%', padding: '8px' }}
+            />
+          </label>
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px' }}>
+            School Name *
+            <input
+              type="text"
+              name="school"
+              value={formData.school}
+              onChange={handleInputChange}
+              required
+              style={{ width: '100%', padding: '8px' }}
             />
           </label>
         </div>

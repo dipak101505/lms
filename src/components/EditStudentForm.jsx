@@ -18,7 +18,9 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
     board: student.board || '',
     mobile: student.mobile || '',
     address: student.address || '',
-    status: student.status || 'active'
+    status: student.status || 'active',
+    dob: student.dob || '',
+    school: student.school || ''
   });
   const [status, setStatus] = useState('');
   const [imageFile, setImageFile] = useState(null);
@@ -333,6 +335,34 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
                 <option value="ICSE">ICSE</option>
                 <option value="WB">WB</option>
               </select>
+            </label>
+          </div>
+
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '5px' }}>
+              Date of Birth *
+              <input
+                type="date"
+                name="dob"
+                value={formData.dob}
+                onChange={handleInputChange}
+                required
+                style={{ width: '100%', padding: '8px' }}
+              />
+            </label>
+          </div>
+
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '5px' }}>
+              School Name *
+              <input
+                type="text"
+                name="school"
+                value={formData.school}
+                onChange={handleInputChange}
+                required
+                style={{ width: '100%', padding: '8px' }}
+              />
             </label>
           </div>
 

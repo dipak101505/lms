@@ -18,7 +18,9 @@ function SignupPage() {
     board: '',
     mobile: '',
     address: '',
-    imageUrl: ''
+    imageUrl: '',
+    dob: '',
+    school: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -186,6 +188,7 @@ function SignupPage() {
       
       // Create student document
       const timestamp = new Date();
+      console.log(formData);
       const studentData = {
         uid: userCredential.user.uid,
         name: formData.name,
@@ -198,6 +201,8 @@ function SignupPage() {
         mobile: formData.mobile,
         address: formData.address,
         imageUrl: imageUrl,
+        dob: formData.dob,
+        school: formData.school,
         createdAt: timestamp,
         updatedAt: timestamp,
         status: 'pending'
@@ -392,6 +397,46 @@ function SignupPage() {
                 <option value="ICSE">ICSE</option>
                 <option value="WB">WB</option>
               </select>
+            </div>
+          </div>
+
+          {/* Add this after the Academic Information Section and before Batch and Centre Section */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: '1fr 1fr',
+            gap: '1rem',
+            marginBottom: '0.5rem'
+          }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>Date of Birth *</label>
+              <input
+                type="date"
+                value={formData.dob}
+                onChange={(e) => setFormData({...formData, dob: e.target.value})}
+                required
+                style={{
+                  width: '80%',
+                  padding: '0.5rem',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc'
+                }}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>School Name *</label>
+              <input
+                type="text"
+                value={formData.school}
+                onChange={(e) => setFormData({...formData, school: e.target.value})}
+                required
+                style={{
+                  width: '80%',
+                  padding: '0.5rem',
+                  borderRadius: '4px',
+                  border: '1px solid #ccc'
+                }}
+              />
             </div>
           </div>
 

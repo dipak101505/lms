@@ -54,7 +54,7 @@ const VideoPlayer = ({ bucketName, videoKey }) => {
         setting: false,
         loop: false,
         flip: true,
-        playbackRate: true,
+        playbackRate: false,
         aspectRatio: true,
         fullscreen: true,
         fullscreenWeb: true,
@@ -83,34 +83,6 @@ const VideoPlayer = ({ bucketName, videoKey }) => {
           }
         ],
   
-        settings: [
-          {
-            html: 'Quality',
-            selector: [
-              { html: '1080p', value: '1080p' },
-              { html: '720p', value: '720p' },
-              { html: '480p', value: '480p' }
-            ],
-            onSelect: function(item) {
-              console.log('Selected quality:', item);
-            }
-          },
-          {
-            html: 'Speed',
-            selector: [
-              { html: '0.5x', value: 0.5 },
-              { html: '1.0x', value: 1.0 },
-              { html: '1.5x', value: 1.5 },
-              { html: '2.0x', value: 2.0 }
-            ],
-            onSelect: function(item) {
-              art.playbackRate = item.value;
-            }
-          }
-        ],
-  
-        // Keyboard shortcuts
-        hotkey: true,
         controls: [
           {
             name: 'fast-forward',
@@ -120,9 +92,31 @@ const VideoPlayer = ({ bucketName, videoKey }) => {
             click: function(art) {
               art.seek(art.currentTime + 10);
             },
+          },
+          {
+            name: 'playback-rate',
+            position: 'right',
+            index: 12,
+            html: '<i>1.0x</i>',
+            selector: [
+              { html: '0.25x', value: 0.25 },
+              { html: '0.5x', value: 0.5 },
+              { html: '0.75x', value: 0.75 },
+              { html: '1.0x', value: 1.0, default: true },
+              { html: '1.25x', value: 1.25 },
+              { html: '1.5x', value: 1.5 },
+              { html: '1.75x', value: 1.75 },
+              { html: '2.0x', value: 2.0 }
+            ],
+            onSelect: function(item) {
+              art.playbackRate = item.value;
+              this.html = `<i>${item.html}</i>`;
+            }
           }
         ],
   
+        // Keyboard shortcuts
+        hotkey: true,
         // Custom keyboard controls
         keyboard: {
           // Space bar for play/pause
