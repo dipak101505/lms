@@ -20,6 +20,7 @@ function MeetingsPage() {
     batch: '',
     subject: '',
     centres: [],
+    topic: '',
     startTime: new Date(),
   });
 
@@ -99,11 +100,12 @@ function MeetingsPage() {
     if (!studentData || !currentStreamData) return false;
 
     const hasMatchingBatch = studentData.batch === currentStreamData.batch;
-    const hasMatchingCentre = studentData.centres.some(centre => 
-      currentStreamData.centres.includes(centre)
-    );
-
-    return hasMatchingBatch && hasMatchingCentre;
+    const hasMatchingCentre = currentStreamData.centres.includes('All') || 
+      studentData.centres.some(centre => currentStreamData.centres.includes(centre));
+    const hasMatchingSubject = studentData.subjects.includes(currentStreamData.subject);
+    console.log(hasMatchingBatch, hasMatchingCentre, hasMatchingSubject);
+    console.log(studentData);
+    return hasMatchingBatch && hasMatchingCentre && hasMatchingSubject;
   };
 
   const fetchData = async () => {
@@ -159,12 +161,6 @@ function MeetingsPage() {
           marginBottom: '12px',
           fontWeight: '600'
         }}>Live Class</h1>
-        <p style={{
-          color: '#718096',
-          fontSize: '16px'
-        }}>
-          {isAdmin ? 'Manage your live class stream' : 'Join your scheduled live class'}
-        </p>
       </div>
 
       <div style={{
@@ -278,6 +274,50 @@ function MeetingsPage() {
               </label>
             </div>
 
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{
+                display: 'block',
+                marginBottom: '8px',
+                color: '#4a5568',
+                fontSize: '14px',
+                fontWeight: '500'
+              }}>
+                Topic *
+                <input
+                  type="text"
+                  value={formData.topic}
+                  onChange={(e) => setFormData({ ...formData, topic: e.target.value })}
+                  required
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '8px',
+                    border: '2px solid #e0e0e0',
+                    backgroundColor: '#f8f9fa',
+                    color: '#2d3748',
+                    fontSize: '15px',
+                    transition: 'all 0.2s ease',
+                    outline: 'none',
+                    cursor: currentStreamId ? 'not-allowed' : 'pointer'
+                  }}
+                  disabled={currentStreamId}
+                  onFocus={(e) => {
+                    if (!currentStreamId) {
+                      e.target.style.borderColor = '#ffa600';
+                      e.target.style.backgroundColor = 'white';
+                      e.target.style.boxShadow = '0 0 0 3px rgba(255, 166, 0, 0.1)';
+                    }
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = '#e0e0e0';
+                    e.target.style.backgroundColor = '#f8f9fa';
+                    e.target.style.boxShadow = 'none';
+                  }}
+                  placeholder="Enter topic for this class"
+                />
+              </label>
+            </div>
+
             <div style={{ marginBottom: '32px' }}>
               <label style={{
                 display: 'block',
@@ -318,6 +358,7 @@ function MeetingsPage() {
                   }}
                 >
                   <option value="">Select Centre</option>
+                  <option value="All">All Centres</option>
                   {centres.map(centre => (
                     <option key={centre.id} value={centre.name}>
                       {centre.name}
@@ -378,7 +419,50 @@ function MeetingsPage() {
           boxShadow: '0 4px 6px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.1)'
         }}>
           {currentStreamId ? (
-            <TwitchStream />
+            !isAdmin && !canViewStream() ? (
+              <div style={{
+                textAlign: 'center',
+                padding: '48px 24px',
+                color: '#718096',
+                fontSize: '16px',
+                backgroundColor: '#f8f9fa',
+                borderRadius: '8px',
+                border: '1px solid #e0e0e0'
+              }}>
+                You don't have access to this stream. Please contact your administrator.
+              </div>
+            ) : (
+              <>
+                {!isAdmin && currentStreamData && canViewStream() && (
+                  <div style={{
+                    marginBottom: '20px',
+                    padding: '16px',
+                    backgroundColor: '#f0f9ff',
+                    borderRadius: '8px',
+                    border: '1px solid #bae6fd',
+                  }}>
+                    <h2 style={{
+                      fontSize: '20px',
+                      color: '#0369a1',
+                      marginBottom: '8px'
+                    }}>
+                      Current Class: {currentStreamData.subject}
+                    </h2>
+                    {currentStreamData.topic && (
+                      <p style={{
+                        fontSize: '16px',
+                        color: '#0284c7',
+                        margin: '0',
+                        paddingLeft: '2px'
+                      }}>
+                        Topic: {currentStreamData.topic}
+                      </p>
+                    )}
+                  </div>
+                )}
+                <TwitchStream />
+              </>
+            )
           ) : (
             <div style={{
               textAlign: 'center',
