@@ -69,6 +69,70 @@ function AttendancePage() {
     }
   };
 
+  const registerBiometric = async (student) => {
+    try {
+      const supported = await checkBiometricSupport();
+      if (!supported) return;
+
+      // Generate a random challenge
+      const challenge = new Uint8Array(32);
+      window.crypto.getRandomValues(challenge);
+
+      // Create registration options
+      const createCredentialOptions = {
+        publicKey: {
+          challenge,
+          rp: {
+            name: "LMS Attendance",
+            id: window.location.hostname
+          },
+          user: {
+            id: Uint8Array.from(student.id, c => c.charCodeAt(0)),
+            name: student.email,
+            displayName: student.name
+          },
+          pubKeyCredParams: [
+            { type: "public-key", alg: -7 }, // ES256
+            { type: "public-key", alg: -257 } // RS256
+          ],
+          authenticatorSelection: {
+            authenticatorAttachment: "platform",
+            userVerification: "required"
+          },
+          timeout: 60000
+        }
+      };
+
+      setVerificationStatus(prev => ({
+        ...prev,
+        [student.id]: 'registering'
+      }));
+
+      // Create the credential
+      const credential = await navigator.credentials.create(createCredentialOptions);
+      
+      if (credential) {
+        console.log('Passkey registered successfully:', credential);
+        // Now verify the biometric
+        await verifyBiometric(student);
+      }
+    } catch (error) {
+      console.error('Registration failed:', error);
+      setVerificationStatus(prev => ({
+        ...prev,
+        [student.id]: 'failed'
+      }));
+      
+      if (error.name === 'NotAllowedError') {
+        alert('Biometric registration was denied');
+      } else if (error.name === 'SecurityError') {
+        alert('Biometric registration requires HTTPS');
+      } else {
+        alert('Biometric registration failed: ' + error.message);
+      }
+    }
+  };
+
   const verifyBiometric = async (student) => {
     setVerificationStatus(prev => ({
       ...prev,
@@ -85,20 +149,19 @@ function AttendancePage() {
         return;
       }
 
-      // Generate a random challenge
       const challenge = new Uint8Array(32);
       window.crypto.getRandomValues(challenge);
 
-      const publicKeyCredentialRequestOptions = {
-        challenge,
-        rpId: window.location.hostname,
-        timeout: 60000,
-        userVerification: "required"
+      const getCredentialOptions = {
+        publicKey: {
+          challenge,
+          rpId: window.location.hostname,
+          timeout: 60000,
+          userVerification: "required"
+        }
       };
 
-      const assertion = await navigator.credentials.get({
-        publicKey: publicKeyCredentialRequestOptions
-      });
+      const assertion = await navigator.credentials.get(getCredentialOptions);
 
       if (assertion) {
         handleAttendanceToggle(student.id);
@@ -107,7 +170,6 @@ function AttendancePage() {
           [student.id]: 'verified'
         }));
         
-        // Clear status after 3 seconds
         setTimeout(() => {
           setVerificationStatus(prev => ({
             ...prev,
@@ -116,7 +178,7 @@ function AttendancePage() {
         }, 3000);
       }
     } catch (error) {
-      console.error('Biometric verification failed:', error);
+      console.error('Verification failed:', error);
       setVerificationStatus(prev => ({
         ...prev,
         [student.id]: 'failed'
@@ -125,9 +187,9 @@ function AttendancePage() {
       if (error.name === 'NotAllowedError') {
         alert('Biometric verification was denied');
       } else if (error.name === 'SecurityError') {
-        alert('Biometric verification is not available in insecure context (requires HTTPS)');
+        alert('Biometric verification requires HTTPS');
       } else {
-        alert('Biometric verification failed');
+        alert('Biometric verification failed: ' + error.message);
       }
     }
   };
@@ -255,14 +317,16 @@ function AttendancePage() {
                     <div style={{ fontSize: '14px', color: '#666' }}>{student.email}</div>
                   </div>
                   <button
-                    onClick={() => verifyBiometric(student)}
-                    disabled={verificationStatus[student.id] === 'verifying'}
+                    onClick={() => registerBiometric(student)}
+                    disabled={verificationStatus[student.id] === 'verifying' || 
+                              verificationStatus[student.id] === 'registering'}
                     style={{
                       padding: '8px 16px',
                       backgroundColor: 
                         verificationStatus[student.id] === 'verified' ? '#059669' :
                         verificationStatus[student.id] === 'failed' ? '#dc2626' :
                         verificationStatus[student.id] === 'verifying' ? '#d1d5db' :
+                        verificationStatus[student.id] === 'registering' ? '#d1d5db' :
                         '#3b82f6',
                       color: 'white',
                       border: 'none',
@@ -272,9 +336,10 @@ function AttendancePage() {
                     }}
                   >
                     {verificationStatus[student.id] === 'verifying' ? 'Verifying...' :
+                     verificationStatus[student.id] === 'registering' ? 'Registering...' :
                      verificationStatus[student.id] === 'verified' ? 'Verified' :
                      verificationStatus[student.id] === 'failed' ? 'Try Again' :
-                     'Verify'}
+                     'Register & Verify'}
                   </button>
                 </div>
               ))}
