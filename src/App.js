@@ -8,6 +8,7 @@ import LoginPage from './pages/LoginPage';
 import ChangePasswordPage from './pages/ChangePasswordPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import StudentManagementPage from './pages/StudentManagementPage';
+import SendVerificationEmail from './pages/SendVerificationEmail';
 import Navbar from './components/Navbar';
 import PrivateRoute from './components/PrivateRoute';
 import './styles/auth.css';
@@ -23,6 +24,7 @@ function App() {
           <Navbar />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
+            <Route path="/send-verification-email" element={<SendVerificationEmail />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/" element={
               <PrivateRoute>

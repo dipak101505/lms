@@ -183,10 +183,13 @@ function SignupPage() {
         imageUrl = await getDownloadURL(imageRef);
       }
       
-      // Create authentication user
+      // Create authentication user and send verification email
       const userCredential = await signup(formData.email, formData.password);
+      await userCredential.user.sendEmailVerification({
+        url: window.location.origin + '/login', // Redirect URL after verification
+      });
       
-      // Create student document
+      // Create student document with pending status
       const timestamp = new Date();
       console.log(formData);
       const studentData = {
@@ -205,15 +208,15 @@ function SignupPage() {
         school: formData.school,
         createdAt: timestamp,
         updatedAt: timestamp,
-        status: 'pending'
+        status: 'pending',
+        emailVerified: false
       };
 
       const studentsRef = collection(db, 'students');
       await addDoc(studentsRef, studentData);
       
       setVerificationSent(true);
-      
-      // Add navigation after successful signup
+      alert('Please check your email to verify your account before logging in.');
       navigate('/login');
       
     } catch (err) {
