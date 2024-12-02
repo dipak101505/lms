@@ -102,7 +102,7 @@ function MeetingsPage() {
     const hasMatchingBatch = studentData.batch === currentStreamData.batch;
     const hasMatchingCentre = currentStreamData.centres.includes('All') || 
       studentData.centres.some(centre => currentStreamData.centres.includes(centre));
-    const hasMatchingSubject = studentData.subjects.includes(currentStreamData.subject);
+    const hasMatchingSubject = studentData.subjects?.includes(currentStreamData.subject);
     console.log(hasMatchingBatch, hasMatchingCentre, hasMatchingSubject);
     console.log(studentData);
     return hasMatchingBatch && hasMatchingCentre && hasMatchingSubject;

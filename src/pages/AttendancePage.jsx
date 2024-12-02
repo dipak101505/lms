@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, Timestamp, doc, updateDoc } from 'firebase/firestore';
+import { useState, useEffect, useRef } from 'react';
+import { collection, getDocs, addDoc, Timestamp } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { storage } from '../firebase/config';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
-import { useNavigate } from 'react-router-dom';
 
 function AttendancePage() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [students, setStudents] = useState([]);
   const [batches, setBatches] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -15,9 +15,11 @@ function AttendancePage() {
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [attendanceList, setAttendanceList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [verificationStatus, setVerificationStatus] = useState({});
-  const [registeredStudents, setRegisteredStudents] = useState(new Set());
+  const videoRef = useRef(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
+  const [capturedPhotos, setCapturedPhotos] = useState({});
 
+  // Fetch initial data
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -31,176 +33,77 @@ function AttendancePage() {
           id: doc.id,
           ...doc.data()
         })));
-        
-        const studentsData = studentsSnap.docs.map(doc => {
-          const data = doc.data();
-          if (data.credentialId) {
-            setRegisteredStudents(prev => new Set(prev).add(doc.id));
-          }
-          return {
-            id: doc.id,
-            ...data
-          };
-        });
-        
-        setStudents(studentsData);
+        setStudents(studentsSnap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        })));
         setSubjects(subjectsSnap.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         })));
-        
         setLoading(false);
       } catch (error) {
         console.error('Error fetching data:', error);
         setLoading(false);
       }
     };
-    
     fetchData();
   }, []);
 
-  const checkBiometricSupport = async () => {
-    if (!window.PublicKeyCredential) {
-      alert('Biometric authentication is not supported by this browser');
-      return false;
-    }
-
+  const startCamera = async (studentId) => {
     try {
-      const available = await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
-      if (!available) {
-        alert('Biometric authentication is not available on this device');
-      }
-      return available;
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'user' } 
+      });
+      videoRef.current.srcObject = stream;
+      setIsCameraActive(true);
     } catch (error) {
-      console.error('Error checking biometric support:', error);
-      return false;
+      console.error('Error accessing camera:', error);
+      alert('Error accessing camera');
     }
   };
 
-  const registerBiometric = async (student) => {
+  const capturePhoto = async (student) => {
     try {
-      const supported = await checkBiometricSupport();
-      if (!supported) return;
-
-      const challenge = new Uint8Array(32);
-      window.crypto.getRandomValues(challenge);
-
-      const createCredentialOptions = {
-        publicKey: {
-          challenge,
-          rp: {
-            name: "LMS Attendance",
-            id: window.location.hostname
-          },
-          user: {
-            id: Uint8Array.from(student.id, c => c.charCodeAt(0)),
-            name: student.email,
-            displayName: student.name
-          },
-          pubKeyCredParams: [
-            { type: "public-key", alg: -7 }
-          ],
-          authenticatorSelection: {
-            authenticatorAttachment: "platform",
-            requireResidentKey: true,
-            userVerification: "required"
-          },
-          timeout: 60000
-        }
-      };
-
-      setVerificationStatus(prev => ({
-        ...prev,
-        [student.id]: 'registering'
-      }));
-
-      const credential = await navigator.credentials.create(createCredentialOptions);
+      // Create a canvas element
+      const canvas = document.createElement('canvas');
+      canvas.width = videoRef.current.videoWidth;
+      canvas.height = videoRef.current.videoHeight;
+      const ctx = canvas.getContext('2d');
       
-      if (credential) {
-        const credentialData = {
-          credentialId: Array.from(new Uint8Array(credential.rawId)),
-          publicKey: Array.from(new Uint8Array(credential.response.getPublicKey())),
-          registeredAt: new Date()
-        };
-
-        const studentRef = doc(db, 'students', student.id);
-        await updateDoc(studentRef, { credential: credentialData });
-        
-        setRegisteredStudents(prev => new Set(prev).add(student.id));
-        setVerificationStatus(prev => ({
-          ...prev,
-          [student.id]: 'registered'
-        }));
-      }
-    } catch (error) {
-      console.error('Registration failed:', error);
-      setVerificationStatus(prev => ({
+      // Draw the current video frame
+      ctx.drawImage(videoRef.current, 0, 0);
+      
+      // Convert to blob
+      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg'));
+      
+      // Upload to Firebase Storage
+      const fileName = `attendance-photos/${selectedDate}/${selectedBatch}/${student.id}-${Date.now()}.jpg`;
+      const storageRef = ref(storage, fileName);
+      const snapshot = await uploadBytes(storageRef, blob);
+      const photoUrl = await getDownloadURL(snapshot.ref);
+      
+      // Store URL and mark attendance
+      setCapturedPhotos(prev => ({
         ...prev,
-        [student.id]: 'failed'
+        [student.id]: photoUrl
       }));
-      alert('Registration failed: ' + error.message);
+      handleAttendanceToggle(student.id);
+      
+      // Stop camera
+      stopCamera();
+    } catch (error) {
+      console.error('Error capturing photo:', error);
+      alert('Error capturing photo');
     }
   };
 
-  const verifyBiometric = async (student) => {
-    setVerificationStatus(prev => ({
-      ...prev,
-      [student.id]: 'verifying'
-    }));
-
-    try {
-      const supported = await checkBiometricSupport();
-      if (!supported) {
-        setVerificationStatus(prev => ({
-          ...prev,
-          [student.id]: 'failed'
-        }));
-        return;
-      }
-
-      const challenge = new Uint8Array(32);
-      window.crypto.getRandomValues(challenge);
-
-      const getCredentialOptions = {
-        publicKey: {
-          challenge,
-          rpId: window.location.hostname,
-          timeout: 60000,
-          userVerification: "required"
-        }
-      };
-
-      const assertion = await navigator.credentials.get(getCredentialOptions);
-
-      if (assertion) {
-        handleAttendanceToggle(student.id);
-        setVerificationStatus(prev => ({
-          ...prev,
-          [student.id]: 'verified'
-        }));
-        
-        setTimeout(() => {
-          setVerificationStatus(prev => ({
-            ...prev,
-            [student.id]: null
-          }));
-        }, 3000);
-      }
-    } catch (error) {
-      console.error('Verification failed:', error);
-      setVerificationStatus(prev => ({
-        ...prev,
-        [student.id]: 'failed'
-      }));
-      
-      if (error.name === 'NotAllowedError') {
-        alert('Biometric verification was denied');
-      } else if (error.name === 'SecurityError') {
-        alert('Biometric verification requires HTTPS');
-      } else {
-        alert('Biometric verification failed: ' + error.message);
-      }
+  const stopCamera = () => {
+    if (videoRef.current?.srcObject) {
+      videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
     }
+    setIsCameraActive(false);
   };
 
   const handleAttendanceToggle = (studentId) => {
@@ -225,7 +128,10 @@ function AttendancePage() {
         batch: selectedBatch,
         subject: selectedSubject,
         date: Timestamp.fromDate(new Date(selectedDate)),
-        presentStudents: attendanceList,
+        presentStudents: attendanceList.map(studentId => ({
+          studentId,
+          photoUrl: capturedPhotos[studentId]
+        })),
         createdAt: Timestamp.now(),
         createdBy: user.email
       };
@@ -233,54 +139,37 @@ function AttendancePage() {
       await addDoc(collection(db, 'attendance'), attendanceData);
       alert('Attendance submitted successfully!');
       setAttendanceList([]);
+      setCapturedPhotos({});
     } catch (error) {
       console.error('Error submitting attendance:', error);
       alert('Error submitting attendance');
     }
   };
 
-  const getButtonColor = (studentId, status) => {
-    switch (status) {
-      case 'verified': return '#059669';
-      case 'failed': return '#dc2626';
-      case 'verifying':
-      case 'registering': return '#d1d5db';
-      default: return '#3b82f6';
-    }
-  };
-
-  const getButtonText = (studentId, status) => {
-    switch (status) {
-      case 'verifying': return 'Verifying...';
-      case 'registering': return 'Registering...';
-      case 'verified': return 'Verified';
-      case 'failed': return 'Try Again';
-      default: return registeredStudents.has(studentId) ? 'Verify' : 'Register';
-    }
-  };
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
+  if (loading) return <div>Loading...</div>;
 
   return (
     <div style={{ padding: '24px', maxWidth: '1200px', margin: '0 auto' }}>
       <h1 style={{ marginBottom: '24px', textAlign: 'center' }}>Attendance Management</h1>
       
+      {/* Batch, Subject, Date selectors */}
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
         <select 
           value={selectedBatch} 
           onChange={(e) => setSelectedBatch(e.target.value)}
           style={{
-            padding: '8px',
+            padding: '8px 12px',
             borderRadius: '4px',
             border: '1px solid #ddd',
-            flex: 1
+            flex: 1,
+            fontSize: '16px'
           }}
         >
           <option value="">Select Batch</option>
           {batches.map(batch => (
-            <option key={batch.id} value={batch.name}>{batch.name}</option>
+            <option key={batch.id} value={batch.name}>
+              {batch.name}
+            </option>
           ))}
         </select>
 
@@ -288,15 +177,18 @@ function AttendancePage() {
           value={selectedSubject} 
           onChange={(e) => setSelectedSubject(e.target.value)}
           style={{
-            padding: '8px',
+            padding: '8px 12px',
             borderRadius: '4px',
             border: '1px solid #ddd',
-            flex: 1
+            flex: 1,
+            fontSize: '16px'
           }}
         >
           <option value="">Select Subject</option>
           {subjects.map(subject => (
-            <option key={subject.id} value={subject.name}>{subject.name}</option>
+            <option key={subject.id} value={subject.name}>
+              {subject.name}
+            </option>
           ))}
         </select>
 
@@ -305,16 +197,29 @@ function AttendancePage() {
           value={selectedDate}
           onChange={(e) => setSelectedDate(e.target.value)}
           style={{
-            padding: '8px',
+            padding: '8px 12px',
             borderRadius: '4px',
             border: '1px solid #ddd',
-            flex: 1
+            flex: 1,
+            fontSize: '16px'
           }}
         />
       </div>
 
       {selectedBatch && selectedSubject && (
         <div>
+          <video
+            ref={videoRef}
+            autoPlay
+            playsInline
+            style={{ 
+              display: isCameraActive ? 'block' : 'none',
+              width: '100%',
+              maxWidth: '500px',
+              margin: '20px auto'
+            }}
+          />
+          
           <div style={{ 
             display: 'grid', 
             gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
@@ -324,18 +229,15 @@ function AttendancePage() {
             {students
               .filter(student => student.batch === selectedBatch)
               .map(student => (
-                <div 
-                  key={student.id}
-                  style={{
-                    padding: '16px',
-                    borderRadius: '8px',
-                    border: '1px solid #ddd',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '12px',
-                    backgroundColor: attendanceList.includes(student.id) ? '#f0fff4' : 'white'
-                  }}
-                >
+                <div key={student.id} style={{
+                  padding: '16px',
+                  borderRadius: '8px',
+                  border: '1px solid #ddd',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                  backgroundColor: attendanceList.includes(student.id) ? '#f0fff4' : 'white'
+                }}>
                   <input
                     type="checkbox"
                     checked={attendanceList.includes(student.id)}
@@ -345,22 +247,34 @@ function AttendancePage() {
                     <div style={{ fontWeight: '500' }}>{student.name}</div>
                     <div style={{ fontSize: '14px', color: '#666' }}>{student.email}</div>
                   </div>
-                  <button
-                    onClick={() => registeredStudents.has(student.id) ? verifyBiometric(student) : registerBiometric(student)}
-                    disabled={verificationStatus[student.id] === 'verifying' || 
-                              verificationStatus[student.id] === 'registering'}
-                    style={{
-                      padding: '8px 16px',
-                      backgroundColor: getButtonColor(student.id, verificationStatus[student.id]),
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      marginLeft: 'auto'
-                    }}
-                  >
-                    {getButtonText(student.id, verificationStatus[student.id])}
-                  </button>
+                  {capturedPhotos[student.id] ? (
+                    <img 
+                      src={capturedPhotos[student.id]} 
+                      alt="Attendance" 
+                      style={{ 
+                        width: '60px', 
+                        height: '60px', 
+                        objectFit: 'cover',
+                        borderRadius: '4px',
+                        marginLeft: 'auto'
+                      }} 
+                    />
+                  ) : (
+                    <button
+                      onClick={() => isCameraActive ? capturePhoto(student) : startCamera(student.id)}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: '#3b82f6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        marginLeft: 'auto'
+                      }}
+                    >
+                      {isCameraActive ? 'Capture' : 'Take Photo'}
+                    </button>
+                  )}
                 </div>
               ))}
           </div>

@@ -18,7 +18,7 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
     board: student.board || '',
     mobile: student.mobile || '',
     address: student.address || '',
-    status: student.status || 'active',
+    status: student.status || 'inactive',
     dob: student.dob || '',
     school: student.school || ''
   });
@@ -470,15 +470,18 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
             }}>
               <input
                 type="checkbox"
-                name="status"
                 checked={formData.status === 'active'}
-                onChange={(e) => setFormData(prev => ({ 
-                  ...prev, 
-                  status: e.target.checked ? 'active' : 'inactive' 
-                }))}
+                onChange={(e) => {
+                  const newStatus = e.target.checked ? 'active' : 'inactive';
+                  setFormData(prev => ({
+                    ...prev,
+                    status: newStatus
+                  }));
+                  console.log('Status changed to:', newStatus);
+                }}
                 style={{ width: '20px', height: '20px' }}
               />
-              <span>Active Status</span>
+              <span>Active Status ({formData.status})</span>
             </label>
             <small style={{ color: '#666', display: 'block', marginTop: '4px' }}>
               Inactive students will not be able to access the platform

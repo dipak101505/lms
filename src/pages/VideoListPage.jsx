@@ -24,10 +24,19 @@ function VideoListPage() {
         const querySnapshot = await getDocs(q);
         
         if (!querySnapshot.empty) {
+          const studentDoc = querySnapshot.docs[0];
+          const data = studentDoc.data();
           setStudentData({
-            id: querySnapshot.docs[0].id,
-            ...querySnapshot.docs[0].data()
+            id: studentDoc.id,
+            ...data
           });
+
+          // If student is inactive, set error
+          if (data.status !== 'active') {
+            setError('Your account is currently inactive. Please contact administrator.');
+            setLoading(false);
+            return;
+          }
         }
       } catch (err) {
         console.error('Error fetching student data:', err);
@@ -38,9 +47,14 @@ function VideoListPage() {
     fetchStudentData();
   }, [user, isAdmin]);
 
-  // Fetch videos
+  // Only fetch videos if student is active
   useEffect(() => {
     const fetchVideos = async () => {
+      // Skip if student is inactive
+      if (!isAdmin && (!studentData || studentData.status !== 'active')) {
+        return;
+      }
+
       try {
         const s3Client = new S3Client({
           region: process.env.REACT_APP_AWS_REGION,
@@ -68,7 +82,7 @@ function VideoListPage() {
           videoFiles = videoFiles.filter(video => {
             const [batch, subject] = video.name.split('/');
             return studentData.batch === batch && 
-                   studentData.subjects.includes(subject);
+                   studentData.subjects?.includes(subject);
           });
         }
 
@@ -81,8 +95,8 @@ function VideoListPage() {
       }
     };
 
-    // Only fetch videos if we have student data (for non-admin users)
-    if (isAdmin || studentData) {
+    // Only fetch videos if admin or active student
+    if (isAdmin || (studentData && studentData.status === 'active')) {
       fetchVideos();
     }
   }, [isAdmin, studentData]);
@@ -180,16 +194,34 @@ function VideoListPage() {
 
   if (error) {
     return (
-      <div style={{ padding: '20px', color: 'red', textAlign: 'center' }}>
-        Error: {error}
+      <div style={{ 
+        padding: '20px', 
+        textAlign: 'center',
+        color: '#dc2626',
+        backgroundColor: '#fee2e2',
+        border: '1px solid #fecaca',
+        borderRadius: '8px',
+        margin: '20px',
+        fontSize: '16px'
+      }}>
+        {error}
       </div>
     );
   }
 
-  if (!isAdmin && !studentData) {
+  if (!isAdmin && (!studentData || studentData.status !== 'active')) {
     return (
-      <div style={{ padding: '20px', textAlign: 'center' }}>
-        No student data found for this account.
+      <div style={{ 
+        padding: '20px', 
+        textAlign: 'center',
+        color: '#dc2626',
+        backgroundColor: '#fee2e2',
+        border: '1px solid #fecaca',
+        borderRadius: '8px',
+        margin: '20px',
+        fontSize: '16px'
+      }}>
+        Your account is currently inactive. Please contact administrator.
       </div>
     );
   }
