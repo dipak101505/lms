@@ -227,7 +227,11 @@ function AttendancePage() {
             marginBottom: '24px'
           }}>
             {students
-              .filter(student => student.batch === selectedBatch)
+              .filter(student => 
+                student.batch === selectedBatch && 
+                student.status === 'active' &&
+                student.subjects?.includes(selectedSubject)
+              )
               .map(student => (
                 <div key={student.id} style={{
                   padding: '16px',
@@ -279,20 +283,43 @@ function AttendancePage() {
               ))}
           </div>
 
-          <button
-            onClick={handleSubmitAttendance}
-            style={{
-              padding: '12px 24px',
-              backgroundColor: '#ffa600',
-              color: 'white',
-              border: 'none',
+          {students.filter(student => 
+            student.batch === selectedBatch && 
+            student.status === 'active' &&
+            student.subjects?.includes(selectedSubject)
+          ).length === 0 && (
+            <div style={{
+              padding: '20px',
+              textAlign: 'center',
+              backgroundColor: '#f3f4f6',
               borderRadius: '8px',
-              cursor: 'pointer',
+              color: '#4b5563',
               fontSize: '16px'
-            }}
-          >
-            Submit Attendance
-          </button>
+            }}>
+              No active students found for this batch and subject.
+            </div>
+          )}
+
+          {students.filter(student => 
+            student.batch === selectedBatch && 
+            student.status === 'active' &&
+            student.subjects?.includes(selectedSubject)
+          ).length > 0 && (
+            <button
+              onClick={handleSubmitAttendance}
+              style={{
+                padding: '12px 24px',
+                backgroundColor: '#ffa600',
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '16px'
+              }}
+            >
+              Submit Attendance
+            </button>
+          )}
         </div>
       )}
     </div>
