@@ -13,6 +13,7 @@ import PrivateRoute from './components/PrivateRoute';
 import './styles/auth.css';
 import AdminRoute from './components/AdminRoute';
 import SignupPage from './pages/SignupPage';
+import AttendancePage from './pages/AttendancePage';
 
 function App() {
   return (
@@ -51,6 +52,11 @@ function App() {
             <Route path="/students" element={
               <AdminRoute>
                 <StudentManagementPage />
+              </AdminRoute>
+            } />
+            <Route path="/attendance" element={
+              <AdminRoute>
+                <AttendancePage />
               </AdminRoute>
             } />
             <Route path="/change-password" element={

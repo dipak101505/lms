@@ -106,7 +106,7 @@ function UploadPage() {
     );
   }
 
-  const MAX_FILE_SIZE = 2*1024 * 1024 * 1024; // 1GB
+  const MAX_FILE_SIZE = 600 * 1024 * 1024; // 600MB
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes';
@@ -135,8 +135,10 @@ function UploadPage() {
         return;
       }
       
-      if (!selectedFile.type.startsWith('video/')) {
-        setFileError('Please select a valid video file');
+      const allowedTypes = ['video/mp4', 'video/mkv', 'video/x-matroska'];
+      if (!allowedTypes.includes(selectedFile.type) && 
+          !selectedFile.name.toLowerCase().endsWith('.mkv')) {
+        setFileError('Please select a valid video file (MP4 or MKV)');
         setFile(null);
         e.target.value = null;
         return;
@@ -567,7 +569,7 @@ function UploadPage() {
             >
               <input
                 type="file"
-                accept="video/*"
+                accept="video/mp4,video/x-matroska,.mkv,video/*"
                 onChange={handleFileChange}
                 style={{ display: 'none' }}
                 id="video-upload"

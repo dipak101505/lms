@@ -128,7 +128,23 @@ function Navbar() {
                     onMouseEnter={() => setIsHovered('students')}
                     onMouseLeave={() => setIsHovered('')}
                   >
-                    Students
+                    Management
+                  </Link>
+                  <Link
+                    to="/attendance"
+                    style={{
+                      color: isHovered === 'attendance' ? '#ffa600' : '#4a5568',
+                      textDecoration: 'none',
+                      fontSize: '15px',
+                      fontWeight: '500',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={() => setIsHovered('attendance')}
+                    onMouseLeave={() => setIsHovered('')}
+                  >
+                    Attendance
                   </Link>
                 </>
               )}
