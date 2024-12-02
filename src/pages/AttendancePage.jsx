@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, Timestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +16,7 @@ function AttendancePage() {
   const [attendanceList, setAttendanceList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [verificationStatus, setVerificationStatus] = useState({});
+  const [registeredStudents, setRegisteredStudents] = useState(new Set());
 
   useEffect(() => {
     const fetchData = async () => {
@@ -31,11 +32,18 @@ function AttendancePage() {
           ...doc.data()
         })));
         
-        setStudents(studentsSnap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })));
-
+        const studentsData = studentsSnap.docs.map(doc => {
+          const data = doc.data();
+          if (data.credentialId) {
+            setRegisteredStudents(prev => new Set(prev).add(doc.id));
+          }
+          return {
+            id: doc.id,
+            ...data
+          };
+        });
+        
+        setStudents(studentsData);
         setSubjects(subjectsSnap.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
@@ -74,11 +82,9 @@ function AttendancePage() {
       const supported = await checkBiometricSupport();
       if (!supported) return;
 
-      // Generate a random challenge
       const challenge = new Uint8Array(32);
       window.crypto.getRandomValues(challenge);
 
-      // Create registration options
       const createCredentialOptions = {
         publicKey: {
           challenge,
@@ -92,11 +98,11 @@ function AttendancePage() {
             displayName: student.name
           },
           pubKeyCredParams: [
-            { type: "public-key", alg: -7 }, // ES256
-            { type: "public-key", alg: -257 } // RS256
+            { type: "public-key", alg: -7 }
           ],
           authenticatorSelection: {
             authenticatorAttachment: "platform",
+            requireResidentKey: true,
             userVerification: "required"
           },
           timeout: 60000
@@ -108,13 +114,23 @@ function AttendancePage() {
         [student.id]: 'registering'
       }));
 
-      // Create the credential
       const credential = await navigator.credentials.create(createCredentialOptions);
       
       if (credential) {
-        console.log('Passkey registered successfully:', credential);
-        // Now verify the biometric
-        await verifyBiometric(student);
+        const credentialData = {
+          credentialId: Array.from(new Uint8Array(credential.rawId)),
+          publicKey: Array.from(new Uint8Array(credential.response.getPublicKey())),
+          registeredAt: new Date()
+        };
+
+        const studentRef = doc(db, 'students', student.id);
+        await updateDoc(studentRef, { credential: credentialData });
+        
+        setRegisteredStudents(prev => new Set(prev).add(student.id));
+        setVerificationStatus(prev => ({
+          ...prev,
+          [student.id]: 'registered'
+        }));
       }
     } catch (error) {
       console.error('Registration failed:', error);
@@ -122,14 +138,7 @@ function AttendancePage() {
         ...prev,
         [student.id]: 'failed'
       }));
-      
-      if (error.name === 'NotAllowedError') {
-        alert('Biometric registration was denied');
-      } else if (error.name === 'SecurityError') {
-        alert('Biometric registration requires HTTPS');
-      } else {
-        alert('Biometric registration failed: ' + error.message);
-      }
+      alert('Registration failed: ' + error.message);
     }
   };
 
@@ -230,6 +239,26 @@ function AttendancePage() {
     }
   };
 
+  const getButtonColor = (studentId, status) => {
+    switch (status) {
+      case 'verified': return '#059669';
+      case 'failed': return '#dc2626';
+      case 'verifying':
+      case 'registering': return '#d1d5db';
+      default: return '#3b82f6';
+    }
+  };
+
+  const getButtonText = (studentId, status) => {
+    switch (status) {
+      case 'verifying': return 'Verifying...';
+      case 'registering': return 'Registering...';
+      case 'verified': return 'Verified';
+      case 'failed': return 'Try Again';
+      default: return registeredStudents.has(studentId) ? 'Verify' : 'Register';
+    }
+  };
+
   if (loading) {
     return <div>Loading...</div>;
   }
@@ -317,17 +346,12 @@ function AttendancePage() {
                     <div style={{ fontSize: '14px', color: '#666' }}>{student.email}</div>
                   </div>
                   <button
-                    onClick={() => registerBiometric(student)}
+                    onClick={() => registeredStudents.has(student.id) ? verifyBiometric(student) : registerBiometric(student)}
                     disabled={verificationStatus[student.id] === 'verifying' || 
                               verificationStatus[student.id] === 'registering'}
                     style={{
                       padding: '8px 16px',
-                      backgroundColor: 
-                        verificationStatus[student.id] === 'verified' ? '#059669' :
-                        verificationStatus[student.id] === 'failed' ? '#dc2626' :
-                        verificationStatus[student.id] === 'verifying' ? '#d1d5db' :
-                        verificationStatus[student.id] === 'registering' ? '#d1d5db' :
-                        '#3b82f6',
+                      backgroundColor: getButtonColor(student.id, verificationStatus[student.id]),
                       color: 'white',
                       border: 'none',
                       borderRadius: '4px',
@@ -335,11 +359,7 @@ function AttendancePage() {
                       marginLeft: 'auto'
                     }}
                   >
-                    {verificationStatus[student.id] === 'verifying' ? 'Verifying...' :
-                     verificationStatus[student.id] === 'registering' ? 'Registering...' :
-                     verificationStatus[student.id] === 'verified' ? 'Verified' :
-                     verificationStatus[student.id] === 'failed' ? 'Try Again' :
-                     'Register & Verify'}
+                    {getButtonText(student.id, verificationStatus[student.id])}
                   </button>
                 </div>
               ))}
