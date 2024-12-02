@@ -106,7 +106,7 @@ function UploadPage() {
     );
   }
 
-  const MAX_FILE_SIZE = 600 * 1024 * 1024; // 600MB
+  const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes';
@@ -212,7 +212,7 @@ function UploadPage() {
           ContentType: file.type,
         },
         queueSize: 4,
-        partSize: 1024 * 1024 * 5,
+        partSize: 1024 * 1024 * 10,
       });
 
       uploadRef.current = parallelUploads3;
