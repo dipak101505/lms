@@ -186,7 +186,6 @@ function SignupPage() {
       
       // Create authentication user and send verification email
       const userCredential = await signup(formData.email, formData.password);
-      await sendEmailVerification(userCredential.user);
       
       // Create student document with pending status
       const timestamp = new Date();
@@ -217,6 +216,7 @@ function SignupPage() {
       setVerificationSent(true);
       alert('Please check your email to verify your account before logging in.');
       navigate('/login');
+      await sendEmailVerification(userCredential.user);
       
     } catch (err) {
       if (err.code === 'auth/too-many-requests') {
