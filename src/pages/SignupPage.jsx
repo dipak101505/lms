@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase/config';
 import { collection, addDoc, getDocs } from 'firebase/firestore';
+import { sendEmailVerification } from 'firebase/auth';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
 function SignupPage() {
@@ -185,9 +186,7 @@ function SignupPage() {
       
       // Create authentication user and send verification email
       const userCredential = await signup(formData.email, formData.password);
-      await userCredential.user.sendEmailVerification({
-        url: window.location.origin + '/login', // Redirect URL after verification
-      });
+      await sendEmailVerification(userCredential.user);
       
       // Create student document with pending status
       const timestamp = new Date();
@@ -220,7 +219,11 @@ function SignupPage() {
       navigate('/login');
       
     } catch (err) {
-      setError('Failed to create account: ' + err.message);
+      if (err.code === 'auth/too-many-requests') {
+        setError('Too many requests. Please try again later.');
+      } else {
+        setError('Failed to create account: ' + err.message);
+      }
     }
     setLoading(false);
   };
