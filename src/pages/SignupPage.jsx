@@ -5,6 +5,7 @@ import { db } from '../firebase/config';
 import { collection, addDoc, getDocs } from 'firebase/firestore';
 import { sendEmailVerification } from 'firebase/auth';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { getAuth, sendEmailVerification } from 'firebase/auth';
 
 function SignupPage() {
   const [formData, setFormData] = useState({
@@ -185,8 +186,7 @@ function SignupPage() {
       }
       
       // Create authentication user and send verification email
-      const userCredential = await signup(formData.email, formData.password);
-      
+      const userCredential = await signup(formData.email, formData.password);     
       // Create student document with pending status
       const timestamp = new Date();
       console.log(formData);
@@ -225,7 +225,6 @@ function SignupPage() {
         setError('Failed to create account: ' + err.message);
       }
     }
-    setLoading(false);
   };
 
   return (

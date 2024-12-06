@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import StudentForm from '../components/StudentForm';
 import BatchForm from '../components/BatchForm';
@@ -57,6 +57,21 @@ function StudentManagementPage() {
     if (e.target.className === 'modal-overlay') {
       setShowAddForm(false);
       setSelectedStudent(null);
+    }
+  };
+
+  const handleDeleteStudent = async (studentId) => {
+    try {
+      // Delete from Firestore
+      await deleteDoc(doc(db, 'students', studentId));
+      
+      // Update local state
+      setStudents(prevStudents => prevStudents.filter(student => student.id !== studentId));
+      
+      alert('Student deleted successfully');
+    } catch (error) {
+      console.error('Error deleting student:', error);
+      alert('Error deleting student. Please try again.');
     }
   };
 
@@ -332,27 +347,54 @@ function StudentManagementPage() {
                         </div>
                       </td>
                       <td style={{ padding: '16px 20px' }}>
-                        <button
-                          onClick={() => setSelectedStudent(student)}
-                          style={{
-                            padding: '6px 12px',
-                            backgroundColor: 'transparent',
-                            color: '#ffa600',
-                            border: '1px solid #ffa600',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            transition: 'all 0.2s ease'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.target.style.backgroundColor = '#fff7e6';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.target.style.backgroundColor = 'transparent';
-                          }}
-                        >
-                          Edit
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            onClick={() => setSelectedStudent(student)}
+                            style={{
+                              padding: '6px 12px',
+                              backgroundColor: 'transparent',
+                              color: '#ffa600',
+                              border: '1px solid #ffa600',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.backgroundColor = '#fff7e6';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.backgroundColor = 'transparent';
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm('Are you sure you want to delete this student?')) {
+                                handleDeleteStudent(student.id);
+                              }
+                            }}
+                            style={{
+                              padding: '6px 12px',
+                              backgroundColor: 'transparent',
+                              color: '#dc2626',
+                              border: '1px solid #dc2626',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              transition: 'all 0.2s ease'
+                            }}
+                            onMouseEnter={(e) => {
+                              e.target.style.backgroundColor = '#fef2f2';
+                            }}
+                            onMouseLeave={(e) => {
+                              e.target.style.backgroundColor = 'transparent';
+                            }}
+                          >
+                            Delete
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

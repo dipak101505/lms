@@ -67,7 +67,7 @@ function Navbar() {
               <Link
                 to="/meetings"
                 style={{
-                  color: isHovered === 'meetings' ? '#ffa600' : '#4a5568',
+                  color: isHovered === 'meetings' || window.location.pathname.includes("meetings") ? '#ffa600' : '#4a5568',
                   textDecoration: 'none',
                   fontSize: '15px',
                   fontWeight: '500',
@@ -83,7 +83,7 @@ function Navbar() {
               <Link
                 to="/videos"
                 style={{
-                  color: isHovered === 'videos' ? '#ffa600' : '#4a5568',
+                  color: isHovered === 'videos' || window.location.pathname.includes("videos") ? '#ffa600' : '#4a5568',
                   textDecoration: 'none',
                   fontSize: '15px',
                   fontWeight: '500',
@@ -101,7 +101,7 @@ function Navbar() {
                   <Link
                     to="/upload"
                     style={{
-                      color: isHovered === 'upload' ? '#ffa600' : '#4a5568',
+                      color: isHovered === 'upload' || window.location.pathname.includes("upload") ? '#ffa600' : '#4a5568',
                       textDecoration: 'none',
                       fontSize: '15px',
                       fontWeight: '500',
@@ -117,7 +117,7 @@ function Navbar() {
                   <Link
                     to="/students"
                     style={{
-                      color: isHovered === 'students' ? '#ffa600' : '#4a5568',
+                      color: isHovered === 'students' || window.location.pathname.includes("students") ? '#ffa600' : '#4a5568',
                       textDecoration: 'none',
                       fontSize: '15px',
                       fontWeight: '500',
@@ -133,7 +133,7 @@ function Navbar() {
                   <Link
                     to="/attendance"
                     style={{
-                      color: isHovered === 'attendance' ? '#ffa600' : '#4a5568',
+                      color: isHovered === 'attendance' || window.location.pathname.includes("attendance") ? '#ffa600' : '#4a5568',
                       textDecoration: 'none',
                       fontSize: '15px',
                       fontWeight: '500',
