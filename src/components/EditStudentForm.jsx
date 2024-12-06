@@ -20,7 +20,8 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
     address: student.address || '',
     status: student.status || 'inactive',
     dob: student.dob || '',
-    school: student.school || ''
+    school: student.school || '',
+    amountPending: student.amountPending || 0,
   });
   const [status, setStatus] = useState('');
   const [imageFile, setImageFile] = useState(null);
@@ -517,6 +518,20 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
                 Uploading image...
               </div>
             )}
+          </div>
+
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '5px' }}>
+              Amount Pending
+            </label>
+            <input
+              type="number"
+              name="amountPending"
+              value={formData.amountPending}
+              onChange={handleInputChange}
+              min="0"
+              style={{ width: '100%', padding: '8px' }}
+            />
           </div>
 
           <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>

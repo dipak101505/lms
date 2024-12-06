@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
+import { collection, getDocs, deleteDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import StudentForm from '../components/StudentForm';
 import BatchForm from '../components/BatchForm';
@@ -16,6 +16,9 @@ function StudentManagementPage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedBatch, setSelectedBatch] = useState('');
+  const [selectedCentre, setSelectedCentre] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -57,6 +60,25 @@ function StudentManagementPage() {
     if (e.target.className === 'modal-overlay') {
       setShowAddForm(false);
       setSelectedStudent(null);
+    }
+  };
+
+  const filteredStudents = students.filter(student => {
+    const matchesName = student.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesBatch = selectedBatch ? student.batch === selectedBatch : true;
+    const matchesCentre = selectedCentre ? student.centres.includes(selectedCentre) : true;
+    return matchesName && matchesBatch && matchesCentre;
+  });
+
+  const handleDelete = async (studentId) => {
+    if (window.confirm('Are you sure you want to delete this student?')) {
+      try {
+        await deleteDoc(doc(db, 'students', studentId));
+        setStudents(students.filter(student => student.id !== studentId));
+      } catch (error) {
+        console.error('Error deleting student:', error);
+        alert('Error deleting student. Please try again.');
+      }
     }
   };
 
@@ -144,6 +166,52 @@ function StudentManagementPage() {
 
       {activeTab === 'students' && (
         <div>
+          {/* Search and Filter Section - Now only visible in students tab */}
+          <div style={{ marginBottom: '20px', display: 'flex', gap: '10px' }}>
+            <input
+              type="text"
+              placeholder="Search by name"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                padding: '10px',
+                borderRadius: '8px',
+                border: '1px solid #ddd',
+                width: '200px'
+              }}
+            />
+            <select
+              value={selectedBatch}
+              onChange={(e) => setSelectedBatch(e.target.value)}
+              style={{
+                padding: '10px',
+                borderRadius: '8px',
+                border: '1px solid #ddd',
+                width: '150px'
+              }}
+            >
+              <option value="">All Batches</option>
+              {batches.map(batch => (
+                <option key={batch.id} value={batch.name}>{batch.name}</option>
+              ))}
+            </select>
+            <select
+              value={selectedCentre}
+              onChange={(e) => setSelectedCentre(e.target.value)}
+              style={{
+                padding: '10px',
+                borderRadius: '8px',
+                border: '1px solid #ddd',
+                width: '150px'
+              }}
+            >
+              <option value="">All Centres</option>
+              {centres.map(centre => (
+                <option key={centre.id} value={centre.name}>{centre.name}</option>
+              ))}
+            </select>
+          </div>
+
           {/* Add Student Button */}
           <div style={{ 
             marginBottom: '20px', 
@@ -244,46 +312,40 @@ function StudentManagementPage() {
                       color: '#4a5568',
                       fontWeight: '600',
                       whiteSpace: 'nowrap'
+                    }}>Amount Pending</th>
+                    <th style={{ 
+                      padding: '14px 20px', 
+                      textAlign: 'left',
+                      color: '#4a5568',
+                      fontWeight: '600',
+                      whiteSpace: 'nowrap'
                     }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {students.map(student => (
-                    <tr 
-                      key={student.id} 
-                      style={{ 
-                        borderBottom: '1px solid #e2e8f0',
-                        transition: 'background-color 0.2s ease'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = '#f8fafc';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = 'white';
-                      }}
-                    >
-                      <td style={{ padding: '16px 20px' }}>
-                        <div style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '12px' 
-                        }}>
-                          <img
-                            src={student.imageUrl || '/default-avatar.png'}
-                            alt={student.name}
-                            style={{
-                              width: '36px',
-                              height: '36px',
-                              borderRadius: '50%',
-                              objectFit: 'cover',
-                              border: '2px solid #e2e8f0'
-                            }}
-                          />
-                          <span style={{ 
-                            color: '#2d3748',
-                            fontWeight: '500'
-                          }}>{student.name}</span>
-                        </div>
+                  {filteredStudents.map(student => (
+                    <tr key={student.id}>
+                      <td style={{ 
+                        padding: '16px 20px',
+                        display: 'flex',
+                        alignItems: 'center'
+                      }}>
+                        <img
+                          src={student.imageUrl || '/default-avatar.png'}
+                          alt={student.name}
+                          style={{
+                            width: '36px',
+                            height: '36px',
+                            borderRadius: '50%',
+                            objectFit: 'cover',
+                            border: '2px solid #e2e8f0'
+                          }}
+                        />
+                        <span style={{ 
+                          color: '#2d3748',
+                          fontWeight: '500',
+                          marginLeft: '8px'
+                        }}>{student.name}</span>
                       </td>
                       <td style={{ 
                         padding: '16px 20px',
@@ -331,7 +393,26 @@ function StudentManagementPage() {
                           ))}
                         </div>
                       </td>
-                      <td style={{ padding: '16px 20px' }}>
+                      <td style={{ 
+                        padding: '16px 20px',
+                        color: '#4a5568',
+                        fontWeight: student.amountPending > 0 ? '600' : '400'
+                      }}>
+                        <span style={{
+                          color: student.amountPending > 0 ? '#dc2626' : '#16a34a',
+                          backgroundColor: student.amountPending > 0 ? '#fee2e2' : '#f0fdf4',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '14px'
+                        }}>
+                          ₹{student.amountPending || 0}
+                        </span>
+                      </td>
+                      <td style={{ 
+                        padding: '16px 20px',
+                        display: 'flex',
+                        gap: '8px'
+                      }}>
                         <button
                           onClick={() => setSelectedStudent(student)}
                           style={{
@@ -352,6 +433,27 @@ function StudentManagementPage() {
                           }}
                         >
                           Edit
+                        </button>
+                        <button
+                          onClick={() => handleDelete(student.id)}
+                          style={{
+                            padding: '6px 12px',
+                            backgroundColor: 'transparent',
+                            color: '#dc2626',
+                            border: '1px solid #dc2626',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                            transition: 'all 0.2s ease'
+                          }}
+                          onMouseEnter={(e) => {
+                            e.target.style.backgroundColor = '#fee2e2';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.target.style.backgroundColor = 'transparent';
+                          }}
+                        >
+                          Delete
                         </button>
                       </td>
                     </tr>
