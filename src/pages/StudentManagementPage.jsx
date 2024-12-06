@@ -6,6 +6,7 @@ import BatchForm from '../components/BatchForm';
 import SubjectForm from '../components/SubjectForm';
 import CentreForm from '../components/CentreForm';
 import EditStudentForm from '../components/EditStudentForm';
+import ZenithForm from '../components/ZenithForm';
 
 function StudentManagementPage() {
   const [activeTab, setActiveTab] = useState('students');
@@ -19,6 +20,8 @@ function StudentManagementPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedBatch, setSelectedBatch] = useState('');
   const [selectedCentre, setSelectedCentre] = useState('');
+  const [showZenithForm, setShowZenithForm] = useState(false);
+  const [selectedStudentForForm, setSelectedStudentForForm] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -80,6 +83,57 @@ function StudentManagementPage() {
         alert('Error deleting student. Please try again.');
       }
     }
+  };
+
+  const handleEmailClick = (student) => {
+    setSelectedStudentForForm(student);
+    setShowZenithForm(true);
+  };
+
+  const renderZenithFormModal = () => {
+    if (!showZenithForm) return null;
+
+    return (
+      <div 
+        className="modal-overlay" 
+        onClick={(e) => {
+          if (e.target.className === 'modal-overlay') {
+            setShowZenithForm(false);
+            setSelectedStudentForForm(null);
+          }
+        }}
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}
+      >
+        <div 
+          className="modal-content"
+          style={{
+            backgroundColor: 'white',
+            width: '100%',
+            height: '100%',
+            overflowY: 'auto'
+          }}
+        >
+          <ZenithForm 
+            studentData={selectedStudentForForm}
+            onClose={() => {
+              setShowZenithForm(false);
+              setSelectedStudentForForm(null);
+            }}
+          />
+        </div>
+      </div>
+    );
   };
 
   if (loading) {
@@ -347,10 +401,17 @@ function StudentManagementPage() {
                           marginLeft: '8px'
                         }}>{student.name}</span>
                       </td>
-                      <td style={{ 
-                        padding: '16px 20px',
-                        color: '#4a5568'
-                      }}>{student.email}</td>
+                      <td 
+                        style={{ 
+                          padding: '16px 20px',
+                          cursor: 'pointer',
+                          color: '#2563eb',
+                          textDecoration: 'underline'
+                        }}
+                        onClick={() => handleEmailClick(student)}
+                      >
+                        {student.email}
+                      </td>
                       <td style={{ 
                         padding: '16px 20px',
                         color: '#4a5568'
@@ -544,6 +605,7 @@ function StudentManagementPage() {
               </div>
             </div>
           )}
+          {renderZenithFormModal()}
         </div>
       )}
 
