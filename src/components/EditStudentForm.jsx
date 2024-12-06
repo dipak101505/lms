@@ -541,7 +541,7 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
               style={{
                 flex: 1,
                 padding: '10px',
-                backgroundColor: status === 'submitting' ? '#ccc' : '#0066FF',
+                backgroundColor: status === 'submitting' ? '#ccc' : '#ffa600',
                 color: 'white',
                 border: 'none',
                 borderRadius: '4px',
@@ -549,19 +549,6 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
               }}
             >
               {status === 'submitting' ? 'Updating...' : 'Update Student'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              style={{
-                padding: '10px',
-                backgroundColor: '#f0f0f0',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
-            >
-              Cancel
             </button>
           </div>
 

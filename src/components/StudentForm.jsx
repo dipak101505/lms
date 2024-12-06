@@ -503,7 +503,7 @@ const StudentForm = ({ onStudentAdded, onClose, batches, subjects, centres }) =>
           style={{
             width: '100%',
             padding: '10px',
-            backgroundColor: status === 'submitting' ? '#ccc' : '#0066FF',
+            backgroundColor: status === 'submitting' ? '#ccc' : '#ffa600',
             color: 'white',
             border: 'none',
             borderRadius: '4px',

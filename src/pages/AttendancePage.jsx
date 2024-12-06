@@ -130,12 +130,13 @@ function AttendancePage() {
         date: Timestamp.fromDate(new Date(selectedDate)),
         presentStudents: attendanceList.map(studentId => ({
           studentId,
-          photoUrl: capturedPhotos[studentId]
+          photoUrl: capturedPhotos?.[studentId] || ''
         })),
         createdAt: Timestamp.now(),
-        createdBy: user.email
+        createdBy: user.email,
+        capturedPhotos: capturedPhotos || [],
       };
-
+      console.log(attendanceData);
       await addDoc(collection(db, 'attendance'), attendanceData);
       alert('Attendance submitted successfully!');
       setAttendanceList([]);
