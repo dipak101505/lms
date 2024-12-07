@@ -158,7 +158,7 @@ const ZenithForm = ({ studentData, onClose }) => {
   const handlePrint = async () => {
     try {
       // Validate required fields
-      if (!formData.name || !formData.admissionFee && !formData.tuitionFee) {
+      if (!formData.name || (!formData.admissionFee && !formData.tuitionFee)) {
         alert('Please fill in all required fields');
         return;
       }
@@ -175,8 +175,31 @@ const ZenithForm = ({ studentData, onClose }) => {
         return;
       }
 
-      // Save to Firestore
-      await saveToFirestore();
+      // Save receipt first
+      const receiptId = await saveToFirestore();
+
+      // Update student document with payment info
+      if (studentData?.id) {
+        const studentRef = doc(db, 'students', studentData.id);
+        const studentDoc = await getDoc(studentRef);
+        
+        if (studentDoc.exists()) {
+          const payments = studentDoc.data().payments || [];
+          const newPayment = {
+            month: formData.month,
+            amount: calculateTotal(),
+            receiptId: receiptId,
+            timestamp: new Date().toISOString(),
+            admissionFee: parseInt(formData.admissionFee) || 0,
+            tuitionFee: parseInt(formData.tuitionFee) || 0,
+            paymentMode: Object.keys(formData.paymentMode).find(key => formData.paymentMode[key]) || 'unknown'
+          };
+
+          await updateDoc(studentRef, {
+            payments: [...payments, newPayment]
+          });
+        }
+      }
 
       // Trigger print
       window.print();

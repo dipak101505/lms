@@ -95,6 +95,39 @@ function StudentManagementPage() {
     window.open(`/receipt?${params.toString()}`, '_blank');
   };
 
+  // Add this near the top of the component
+const PaymentHistoryTooltip = ({ payments }) => {
+  if (!payments?.length) return "No payment history";
+  
+  return (
+    <div style={{ 
+      padding: '8px',
+      maxHeight: '200px',
+      overflowY: 'auto'
+    }}>
+      {payments.map((payment, index) => (
+        <div key={index} style={{
+          borderBottom: index < payments.length - 1 ? '1px solid #e2e8f0' : 'none',
+          padding: '8px 0'
+        }}>
+          <div style={{ fontWeight: '500' }}>
+            {new Date(payment.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+          </div>
+          <div style={{ color: '#4a5568', fontSize: '13px' }}>
+            Amount: ₹{payment.amount}
+          </div>
+          <div style={{ color: '#718096', fontSize: '12px' }}>
+            Receipt: #{payment.receiptId}
+          </div>
+          <div style={{ color: '#718096', fontSize: '12px' }}>
+            Mode: {payment.paymentMode}
+          </div>
+        </div>
+      ))}
+    </div>
+    );
+  };
+
   const renderZenithFormModal = () => {
     if (!showZenithForm) return null;
 
@@ -411,11 +444,49 @@ function StudentManagementPage() {
                           padding: '16px 20px',
                           cursor: 'pointer',
                           color: '#2563eb',
-                          textDecoration: 'underline'
+                          textDecoration: 'underline',
+                          position: 'relative' // Add this
                         }}
                         onClick={() => handleEmailClick(student)}
+                        onMouseEnter={(e) => {
+                          const tooltip = e.currentTarget.querySelector('.payment-tooltip');
+                          if (tooltip) tooltip.style.display = 'block';
+                        }}
+                        onMouseLeave={(e) => {
+                          const tooltip = e.currentTarget.querySelector('.payment-tooltip');
+                          if (tooltip) tooltip.style.display = 'none';
+                        }}
                       >
-                        {student.email}
+                      {student.email}
+                        <div 
+                          className="payment-tooltip"
+                          style={{
+                            display: 'none',
+                            position: 'absolute',
+                            top: '100%',
+                            left: '0',
+                            backgroundColor: 'white',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '8px',
+                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                            zIndex: 1000,
+                            minWidth: '250px',
+                            maxWidth: '300px'
+                          }}
+                        >
+                          <div style={{
+                            backgroundColor: '#f8fafc',
+                            padding: '8px 12px',
+                            borderTopLeftRadius: '8px',
+                            borderTopRightRadius: '8px',
+                            borderBottom: '1px solid #e2e8f0',
+                            fontWeight: '600',
+                            color: '#4a5568'
+                          }}>
+                            Payment History
+                          </div>
+                          <PaymentHistoryTooltip payments={student.payments} />
+                        </div>
                       </td>
                       <td style={{ 
                         padding: '16px 20px',
