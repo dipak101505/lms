@@ -96,35 +96,66 @@ function StudentManagementPage() {
   };
 
   // Add this near the top of the component
-const PaymentHistoryTooltip = ({ payments }) => {
-  if (!payments?.length) return "No payment history";
-  
-  return (
-    <div style={{ 
-      padding: '8px',
-      maxHeight: '200px',
-      overflowY: 'auto'
-    }}>
-      {payments.map((payment, index) => (
-        <div key={index} style={{
-          borderBottom: index < payments.length - 1 ? '1px solid #e2e8f0' : 'none',
-          padding: '8px 0'
+  const PaymentHistoryTooltip = ({ payments }) => {
+    if (!payments?.length) return "No payment history";
+    
+    return (
+      <div style={{ 
+        padding: '8px',
+        minWidth: '80vw',
+        maxWidth: '90vw',
+        overflowX: 'auto'  // Changed from overflowY to overflowX
+      }}>
+        <div style={{
+          display: 'flex',
+          gap: '12px',
+          paddingBottom: '8px'  // Add padding for scroll space
         }}>
-          <div style={{ fontWeight: '500' }}>
-            {new Date(payment.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-          </div>
-          <div style={{ color: '#4a5568', fontSize: '13px' }}>
-            Amount: ₹{payment.amount}
-          </div>
-          <div style={{ color: '#718096', fontSize: '12px' }}>
-            Receipt: #{payment.receiptId}
-          </div>
-          <div style={{ color: '#718096', fontSize: '12px' }}>
-            Mode: {payment.paymentMode}
-          </div>
+          {payments.map((payment, index) => (
+            <div key={index} style={{
+              minWidth: '200px',  // Fixed width for each payment card
+              flex: '0 0 auto',
+              padding: '12px',
+              backgroundColor: '#f8fafc',
+              borderRadius: '8px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <div style={{ 
+                fontWeight: '500',
+                color: '#1e293b',
+                marginBottom: '4px'
+              }}>
+                {new Date(payment.month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+              </div>
+              <div style={{ 
+                color: '#4a5568', 
+                fontSize: '14px',
+                fontWeight: '500',
+                marginBottom: '4px'
+              }}>
+                ₹{payment.amount}
+              </div>
+              <div style={{ 
+                color: '#718096', 
+                fontSize: '12px',
+                marginBottom: '2px'
+              }}>
+                Receipt: #{payment.receiptId}
+              </div>
+              <div style={{ 
+                color: '#718096', 
+                fontSize: '12px',
+                backgroundColor: '#f1f5f9',
+                display: 'inline-block',
+                padding: '2px 8px',
+                borderRadius: '12px'
+              }}>
+                {payment.paymentMode}
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
-    </div>
+      </div>
     );
   };
 
@@ -464,24 +495,28 @@ const PaymentHistoryTooltip = ({ payments }) => {
                             display: 'none',
                             position: 'absolute',
                             top: '100%',
-                            left: '0',
+                            left: '50%',
+                            transform: 'translateX(-25%)',
                             backgroundColor: 'white',
                             border: '1px solid #e2e8f0',
                             borderRadius: '8px',
                             boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
                             zIndex: 1000,
-                            minWidth: '250px',
-                            maxWidth: '300px'
+                            minWidth: '20vw',
+                            maxWidth: '50vw'
                           }}
                         >
                           <div style={{
                             backgroundColor: '#f8fafc',
-                            padding: '8px 12px',
-                            borderTopLeftRadius: '8px',
-                            borderTopRightRadius: '8px',
+                            padding: '12px 20px',
+                            borderTopLeftRadius: '12px',
+                            borderTopRightRadius: '12px',
                             borderBottom: '1px solid #e2e8f0',
                             fontWeight: '600',
-                            color: '#4a5568'
+                            color: '#4a5568',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center'
                           }}>
                             Payment History
                           </div>
