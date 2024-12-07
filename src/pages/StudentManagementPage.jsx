@@ -86,8 +86,13 @@ function StudentManagementPage() {
   };
 
   const handleEmailClick = (student) => {
-    setSelectedStudentForForm(student);
-    setShowZenithForm(true);
+    // Create a new URL with student data as query parameters
+    const params = new URLSearchParams({
+      studentData: JSON.stringify(student)
+    });
+    
+    // Open in new tab
+    window.open(`/receipt?${params.toString()}`, '_blank');
   };
 
   const renderZenithFormModal = () => {

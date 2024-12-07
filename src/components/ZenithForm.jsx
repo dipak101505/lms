@@ -553,7 +553,9 @@ const ZenithForm = ({ studentData, onClose }) => {
     <div>
       <div >
         {renderForm(true)}
+        <div style={{marginTop: '6rem'}}>
           {renderForm(false)}
+          </div>
        </div>
 
       {/* Print Button Container */}

@@ -15,7 +15,7 @@ import './styles/auth.css';
 import AdminRoute from './components/AdminRoute';
 import SignupPage from './pages/SignupPage';
 import AttendancePage from './pages/AttendancePage';
-
+import ReceiptPage from './pages/ReceiptPage';
 function App() {
   return (
     <AuthProvider>
@@ -49,6 +49,11 @@ function App() {
             <Route path="/play/:videoKey" element={
               <PrivateRoute>
                 <VideoPlayer />
+              </PrivateRoute>
+            } />
+            <Route path="/receipt" element={
+              <PrivateRoute>
+                <ReceiptPage />
               </PrivateRoute>
             } />
             <Route path="/students" element={
