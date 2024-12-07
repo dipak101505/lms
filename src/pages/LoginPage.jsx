@@ -149,6 +149,7 @@ function LoginPage() {
         <img 
           src="login.jpg" 
           alt="Login" 
+          referrerPolicy="origin"
           style={{
             maxWidth: '80%',
             maxHeight: '80%',

@@ -66,6 +66,9 @@ function UploadPage() {
               accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
               secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
             },
+            headers: {
+              'Referer': window.location.origin
+            }
           });
 
           debugger;
@@ -106,7 +109,7 @@ function UploadPage() {
     );
   }
 
-  const MAX_FILE_SIZE = 1024 * 1024 * 1024; // 1GB
+  const MAX_FILE_SIZE = 600 * 1024 * 1024; // 600MB
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes';
@@ -194,6 +197,9 @@ function UploadPage() {
           accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
           secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
         },
+        headers: {
+          'Referer': window.location.origin
+        }
       });
 
       const topicToUse = formData.topic === 'new' ? formData.newTopic : formData.topic;
@@ -588,7 +594,7 @@ function UploadPage() {
                       Drag and drop your video here or click to browse
                     </div>
                     <div style={{ color: '#718096', fontSize: '14px' }}>
-                      Maximum file size: {formatFileSize(MAX_FILE_SIZE)}
+                      Maximum file size: 600MB
                     </div>
                   </>
                 ) : (
