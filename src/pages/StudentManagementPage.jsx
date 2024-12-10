@@ -333,6 +333,9 @@ function StudentManagementPage() {
                 <option key={centre.id} value={centre.name}>{centre.name}</option>
               ))}
             </select>
+            <div>
+              Displaying {filteredStudents?.length} students
+            </div>
           </div>
 
           {/* Add Student Button */}
