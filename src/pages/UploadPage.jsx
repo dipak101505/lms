@@ -504,7 +504,7 @@ function UploadPage() {
               fontSize: '14px',
               fontWeight: '500'
             }}>
-              Subtopic (optional)
+              Video Title (optional)
             </label>
             <input
               type="text"
