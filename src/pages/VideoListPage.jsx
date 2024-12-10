@@ -77,7 +77,8 @@ function VideoListPage() {
         ).map(item => ({
           name: item.Key,
           lastModified: item.LastModified,
-          size: (item.Size / 1024 / 1024).toFixed(2)
+          size: (item.Size / 1024 / 1024).toFixed(2),
+          storageClass: item.StorageClass
         }));
 
         // Filter videos based on student's batch and subjects if not admin
@@ -328,23 +329,46 @@ function VideoListPage() {
                                       }}
                                     >
                                       <Link 
-                                        to={`/play/${encodeURIComponent(video.name)}`}
+                                        to={video.storageClass === 'DEEP_ARCHIVE' ? '#' : `/play/${encodeURIComponent(video.name)}`}
                                         style={{
                                           textDecoration: 'none',
-                                          width: '100%'
+                                          width: '100%',
+                                          cursor: video.storageClass === 'DEEP_ARCHIVE' ? 'not-allowed' : 'pointer',
+                                          opacity: video.storageClass === 'DEEP_ARCHIVE' ? 0.6 : 1,
+                                        }}
+                                        onClick={(e) => {
+                                          if (video.storageClass === 'DEEP_ARCHIVE') {
+                                            e.preventDefault();
+                                            alert('We recommend attending live classes, if you want to watch this video. Please contact administrator.');
+                                          }
                                         }}
                                       >
                                         <div>
                                           <div style={{ 
                                             fontSize: '14px', 
                                             color: '#333',
-                                            cursor: 'pointer',
                                             transition: 'color 0.2s ease'
                                           }}
-                                          onMouseEnter={(e) => e.target.style.color = '#ffa600'}
+                                          onMouseEnter={(e) => {
+                                            if (video.storageClass !== 'DEEP_ARCHIVE') {
+                                              e.target.style.color = '#ffa600'
+                                            }
+                                          }}
                                           onMouseLeave={(e) => e.target.style.color = '#333'}
                                           >
                                             {formatVideoName(video.filename)}
+                                            {video.storageClass === 'DEEP_ARCHIVE' && (
+                                              <span style={{
+                                                marginLeft: '8px',
+                                                fontSize: '12px',
+                                                padding: '2px 6px',
+                                                backgroundColor: '#f3f4f6',
+                                                color: '#6b7280',
+                                                borderRadius: '4px',
+                                              }}>
+                                                Permission Required
+                                              </span>
+                                            )}
                                           </div>
                                           <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
                                             Size: {video.size} MB | 
@@ -450,23 +474,46 @@ function VideoListPage() {
                               }}
                             >
                               <Link 
-                                to={`/play/${encodeURIComponent(video.name)}`}
+                                to={video.storageClass === 'DEEP_ARCHIVE' ? '#' : `/play/${encodeURIComponent(video.name)}`}
                                 style={{
                                   textDecoration: 'none',
-                                  width: '100%'
+                                  width: '100%',
+                                  cursor: video.storageClass === 'DEEP_ARCHIVE' ? 'not-allowed' : 'pointer',
+                                  opacity: video.storageClass === 'DEEP_ARCHIVE' ? 0.6 : 1,
+                                }}
+                                onClick={(e) => {
+                                  if (video.storageClass === 'DEEP_ARCHIVE') {
+                                    e.preventDefault();
+                                    alert('We recommend attending live classes, if you want to watch this video. Please contact administrator.');
+                                  }
                                 }}
                               >
                                 <div>
                                   <div style={{ 
                                     fontSize: '14px', 
                                     color: '#333',
-                                    cursor: 'pointer',
                                     transition: 'color 0.2s ease'
                                   }}
-                                  onMouseEnter={(e) => e.target.style.color = '#ffa600'}
+                                  onMouseEnter={(e) => {
+                                    if (video.storageClass !== 'DEEP_ARCHIVE') {
+                                      e.target.style.color = '#ffa600'
+                                    }
+                                  }}
                                   onMouseLeave={(e) => e.target.style.color = '#333'}
                                   >
                                     {formatVideoName(video.filename)}
+                                    {video.storageClass === 'DEEP_ARCHIVE' && (
+                                      <span style={{
+                                        marginLeft: '8px',
+                                        fontSize: '12px',
+                                        padding: '2px 6px',
+                                        backgroundColor: '#f3f4f6',
+                                        color: '#6b7280',
+                                        borderRadius: '4px',
+                                      }}>
+                                        Permission Required
+                                      </span>
+                                    )}
                                   </div>
                                   <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
                                     Size: {video.size} MB | 
