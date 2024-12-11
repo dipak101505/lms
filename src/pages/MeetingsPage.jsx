@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { S3Client } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
+import Chat from '../components/Chat';
 
 function MeetingsPage() {
   const [currentStreamId, setCurrentStreamId] = useState(null);
@@ -93,10 +94,10 @@ function MeetingsPage() {
       }
     } else {
       try {
-        // Stop streaming - delete document
+        // Stop streaming - delete document and clear chat
         await deleteDoc(doc(db, 'streams', currentStreamId));
+        await Chat.clearMessages(); // Clear all chat messages
         setCurrentStreamId(null);
-        // setCurrentStreamData(null);
         setShowUpload(true);
       } catch (error) {
         console.error('Error stopping stream:', error);
@@ -565,6 +566,7 @@ function MeetingsPage() {
                   </div>
                 )}
                 <TwitchStream />
+                <Chat />
               </>
             )
           ) : (
