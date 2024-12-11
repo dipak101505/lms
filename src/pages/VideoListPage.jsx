@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, Timestamp } from 'firebase/firestore';
 import { S3Client, ListObjectsV2Command, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
@@ -191,6 +191,30 @@ function VideoListPage() {
       .join(' ');
   };
 
+  const checkVideoViewLimit = async (videoName, userEmail) => {
+    try {
+      const viewsRef = collection(db, 'videoViews');
+      const q = query(viewsRef, where('userEmail', '==', userEmail));
+      const snapshot = await getDocs(q);
+      
+      // Filter views for this video in the last 7 days
+      const now = new Date();
+      const weekAgo = now.getTime() - (7 * 24 * 60 * 60 * 1000);
+      
+      const recentViews = snapshot.docs
+        .map(doc => doc.data())
+        .filter(view => 
+          view.videoName === videoName && 
+          view.viewedAt.toMillis() > weekAgo
+        );
+
+      return recentViews.length < 2;
+    } catch (error) {
+      console.error('Error checking view limit:', error);
+      return true; // Allow view on error
+    }
+  };
+
   if (loading) {
     return (
       <div style={{ padding: '20px', textAlign: 'center' }}>
@@ -336,11 +360,29 @@ function VideoListPage() {
                                           cursor: video.storageClass === 'DEEP_ARCHIVE' ? 'not-allowed' : 'pointer',
                                           opacity: video.storageClass === 'DEEP_ARCHIVE' ? 0.6 : 1,
                                         }}
-                                        onClick={(e) => {
+                                        onClick={async (e) => {
                                           if (video.storageClass === 'DEEP_ARCHIVE') {
                                             e.preventDefault();
                                             alert('We recommend attending live classes, if you want to watch this video. Please contact administrator.');
+                                            return;
                                           }
+
+                                          e.preventDefault();
+                                          const canView = await checkVideoViewLimit(video.name, user.email);
+                                          if (!canView) {
+                                            alert('You have reached the maximum views (2) for this video this week. Please try again next week or contact administrator.');
+                                            return;
+                                          }
+
+                                          // Record the view
+                                          await addDoc(collection(db, 'videoViews'), {
+                                            videoName: video.name,
+                                            userEmail: user.email,
+                                            viewedAt: Timestamp.now()
+                                          });
+
+                                          // Navigate to video
+                                          window.location.href = `/play/${encodeURIComponent(video.name)}`;
                                         }}
                                       >
                                         <div>
@@ -481,11 +523,29 @@ function VideoListPage() {
                                   cursor: video.storageClass === 'DEEP_ARCHIVE' ? 'not-allowed' : 'pointer',
                                   opacity: video.storageClass === 'DEEP_ARCHIVE' ? 0.6 : 1,
                                 }}
-                                onClick={(e) => {
+                                onClick={async (e) => {
                                   if (video.storageClass === 'DEEP_ARCHIVE') {
                                     e.preventDefault();
                                     alert('We recommend attending live classes, if you want to watch this video. Please contact administrator.');
+                                    return;
                                   }
+
+                                  e.preventDefault();
+                                  const canView = await checkVideoViewLimit(video.name, user.email);
+                                  if (!canView) {
+                                    alert('You have reached the maximum views (2) for this video this week. Please try again next week or contact administrator.');
+                                    return;
+                                  }
+
+                                  // Record the view
+                                  await addDoc(collection(db, 'videoViews'), {
+                                    videoName: video.name,
+                                    userEmail: user.email,
+                                    viewedAt: Timestamp.now()
+                                  });
+
+                                  // Navigate to video
+                                  window.location.href = `/play/${encodeURIComponent(video.name)}`;
                                 }}
                               >
                                 <div>
