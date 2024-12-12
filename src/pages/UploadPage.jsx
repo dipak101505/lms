@@ -130,28 +130,36 @@ function UploadPage() {
     const selectedFile = e.target.files[0];
     setFileError('');
     
-    if (selectedFile) {
-      if (selectedFile.size > MAX_FILE_SIZE) {
-        setFileError(`File size must be less than ${formatFileSize(MAX_FILE_SIZE)}`);
-        setFile(null);
-        e.target.value = null;
-        return;
-      }
-      
-      const allowedTypes = ['video/mp4', 'video/mkv', 'video/x-matroska'];
-      if (!allowedTypes.includes(selectedFile.type) && 
-          !selectedFile.name.toLowerCase().endsWith('.mkv')) {
-        setFileError('Please select a valid video file (MP4 or MKV)');
-        setFile(null);
-        e.target.value = null;
-        return;
-      }
-      
-      setFile(selectedFile);
-      setUploadProgress(0);
-      setUploadSpeed(0);
-      setTimeRemaining(null);
+    if (!selectedFile) {
+      setFile(null);
+      return;
     }
+
+    const isPDF = selectedFile.type === 'application/pdf';
+    const isVideo = selectedFile.type.startsWith('video/');
+
+    if (!isPDF && !isVideo) {
+      setFileError('Please upload a video or PDF file');
+      setFile(null);
+      return;
+    }
+
+    if (isPDF && selectedFile.size > 50 * 1024 * 1024) { // 50MB limit for PDFs
+      setFileError('PDF file size must be less than 50MB');
+      setFile(null);
+      return;
+    }
+
+    if (isVideo && selectedFile.size > MAX_FILE_SIZE) { // 600MB limit for videos
+      setFileError('Video file size must be less than 600MB');
+      setFile(null);
+      return;
+    }
+
+    setFile(selectedFile);
+    setUploadProgress(0);
+    setUploadSpeed(0);
+    setTimeRemaining(null);
   };
 
   const handleInputChange = (e) => {
@@ -203,11 +211,13 @@ function UploadPage() {
       });
 
       const topicToUse = formData.topic === 'new' ? formData.newTopic : formData.topic;
-
       const folderPath = `${formData.batch}/${formData.subject}/${topicToUse}`;
+      
+      // Determine file extension based on file type
+      const fileExtension = file.type === 'application/pdf' ? '.pdf' : '.mp4';
       const fileName = formData.subtopic ? 
-        `${formData.subtopic}-${Date.now()}.mp4` : 
-        `${Date.now()}.mp4`;
+        `${formData.subtopic}-${Date.now()}${fileExtension}` : 
+        `${Date.now()}${fileExtension}`;
 
       const parallelUploads3 = new Upload({
         client: s3Client,
@@ -215,7 +225,7 @@ function UploadPage() {
           Bucket: 'zenithvideo',
           Key: `${folderPath}/${fileName}`,
           Body: file,
-          ContentType: file.type,
+          ContentType: file.type, // This will set the correct content type
         },
         queueSize: 4,
         partSize: 1024 * 1024 * 10,
@@ -545,7 +555,7 @@ function UploadPage() {
               fontSize: '14px',
               fontWeight: '500'
             }}>
-              Video File * {file && <span>({formatFileSize(file.size)})</span>}
+              File * {file && <span>({formatFileSize(file.size)})</span>}
             </label>
             <div style={{
               border: '2px dashed #e0e0e0',
@@ -575,7 +585,7 @@ function UploadPage() {
             >
               <input
                 type="file"
-                accept="video/mp4,video/x-matroska,.mkv,video/*"
+                accept="video/mp4,video/x-matroska,.mkv,video/*,application/pdf"
                 onChange={handleFileChange}
                 style={{ display: 'none' }}
                 id="video-upload"
@@ -591,10 +601,10 @@ function UploadPage() {
                       </svg>
                     </div>
                     <div style={{ color: '#4a5568', marginBottom: '4px' }}>
-                      Drag and drop your video here or click to browse
+                      Drag and drop your video or PDF here or click to browse
                     </div>
                     <div style={{ color: '#718096', fontSize: '14px' }}>
-                      Maximum file size: 600MB
+                      Maximum file size: 600MB for videos, 50MB for PDFs
                     </div>
                   </>
                 ) : (
@@ -612,10 +622,20 @@ function UploadPage() {
                       fontSize: '15px',
                       fontWeight: '500'
                     }}>
-                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffa600" strokeWidth="2">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                        <polyline points="14 2 14 8 20 8"></polyline>
-                      </svg>
+                      {file.type === 'application/pdf' ? (
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ff0000" strokeWidth="2">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                          <polyline points="14 2 14 8 20 8"></polyline>
+                          <line x1="16" y1="13" x2="8" y2="13"></line>
+                          <line x1="16" y1="17" x2="8" y2="17"></line>
+                          <polyline points="10 9 9 9 8 9"></polyline>
+                        </svg>
+                      ) : (
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ffa600" strokeWidth="2">
+                          <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                          <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                        </svg>
+                      )}
                       {file.name}
                     </div>
                     <button
