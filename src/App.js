@@ -16,6 +16,8 @@ import AdminRoute from './components/AdminRoute';
 import SignupPage from './pages/SignupPage';
 import AttendancePage from './pages/AttendancePage';
 import ReceiptPage from './pages/ReceiptPage';
+import PDFViewer from './components/PDFViewer';
+
 function App() {
   return (
     <AuthProvider>
@@ -29,6 +31,11 @@ function App() {
             <Route path="/" element={
               <PrivateRoute>
                 <VideoListPage />
+              </PrivateRoute>
+            } />
+            <Route path="/pdf/:pdfKey" element={
+              <PrivateRoute>
+                <PDFViewer />
               </PrivateRoute>
             } />
             <Route path="/videos" element={

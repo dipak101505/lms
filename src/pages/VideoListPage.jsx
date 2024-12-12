@@ -72,25 +72,26 @@ function VideoListPage() {
         });
 
         const response = await s3Client.send(command);
-        let videoFiles = response.Contents.filter(item => 
-          item.Key.endsWith('.mp4')
+        let files = response.Contents.filter(item => 
+          item.Key.endsWith('.mp4') || item.Key.endsWith('.pdf')
         ).map(item => ({
           name: item.Key,
           lastModified: item.LastModified,
           size: (item.Size / 1024 / 1024).toFixed(2),
-          storageClass: item.StorageClass
+          storageClass: item.StorageClass,
+          type: item.Key.endsWith('.pdf') ? 'pdf' : 'video'
         }));
 
         // Filter videos based on student's batch and subjects if not admin
         if (!isAdmin && studentData) {
-          videoFiles = videoFiles.filter(video => {
-            const [batch, subject] = video.name.split('/');
+          files = files.filter(file => {
+            const [batch, subject] = file.name.split('/');
             return studentData.batch === batch && 
                    studentData.subjects?.includes(subject);
           });
         }
 
-        setVideos(videoFiles);
+        setVideos(files);
         setLoading(false);
       } catch (err) {
         console.error('Error fetching videos:', err);
@@ -213,6 +214,161 @@ function VideoListPage() {
       console.error('Error checking view limit:', error);
       return true; // Allow view on error
     }
+  };
+
+  const formatFileName = (filename) => {
+    // Remove the extension first
+    const nameWithoutExt = filename.replace(/\.[^/.]+$/, "");
+    
+    // Find the last occurrence of hyphen and take everything before it
+    const lastHyphenIndex = nameWithoutExt.lastIndexOf('-');
+    const name = lastHyphenIndex !== -1 
+      ? nameWithoutExt.substring(0, lastHyphenIndex) 
+      : nameWithoutExt;
+    
+    // Capitalize first letter of each word
+    return name
+      .split(/[_]/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  const FileItem = ({ file, isAdmin, handleDelete, user }) => {
+    const isPdf = file.type === 'pdf';
+    const [isHovered, setIsHovered] = useState(false);
+
+    return (
+      <div
+        style={{
+          padding: '10px',
+          marginTop: '5px',
+          backgroundColor: isHovered ? '#f8f9fa' : '#fff',
+          borderRadius: '4px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          boxShadow: isHovered ? '0 2px 4px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.1)',
+          transition: 'all 0.2s ease-in-out',
+          border: `1px solid ${isHovered ? '#e2e8f0' : 'transparent'}`
+        }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <Link 
+          to={file.storageClass === 'DEEP_ARCHIVE' ? '#' : 
+              isPdf ? `/pdf/${encodeURIComponent(file.name)}` :
+              `/play/${encodeURIComponent(file.name)}`}
+          style={{
+            textDecoration: 'none',
+            width: '100%',
+            cursor: file.storageClass === 'DEEP_ARCHIVE' ? 'not-allowed' : 'pointer',
+            opacity: file.storageClass === 'DEEP_ARCHIVE' ? 0.6 : 1,
+          }}
+          onClick={async (e) => {
+            if (file.storageClass === 'DEEP_ARCHIVE') {
+              e.preventDefault();
+              alert('Please contact administrator for access.');
+              return;
+            }
+
+            if (isPdf) {
+              // For PDFs, open in new tab
+              e.preventDefault();
+              window.open(`/pdf/${encodeURIComponent(file.name)}`, '_blank');
+              return;
+            }
+
+            // Video view limit logic
+            e.preventDefault();
+            const canView = await checkVideoViewLimit(file.name, user.email);
+            if (!canView) {
+              alert('You have reached the maximum views (2) for this video this week. Please try again next week or contact administrator.');
+              return;
+            }
+
+            await addDoc(collection(db, 'videoViews'), {
+              videoName: file.name,
+              userEmail: user.email,
+              viewedAt: Timestamp.now()
+            });
+
+            window.location.href = `/play/${encodeURIComponent(file.name)}`;
+          }}
+        >
+          <div>
+            <div style={{ 
+              fontSize: '14px', 
+              color: isHovered ? '#2d3748' : '#333',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'color 0.2s ease-in-out'
+            }}>
+              {isPdf ? (
+                <svg 
+                  width="20" 
+                  height="20" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke={isHovered ? '#dc2626' : '#ff0000'} 
+                  strokeWidth="2"
+                  style={{ transition: 'stroke 0.2s ease-in-out' }}
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                  <line x1="16" y1="13" x2="8" y2="13"></line>
+                  <line x1="16" y1="17" x2="8" y2="17"></line>
+                  <polyline points="10 9 9 9 8 9"></polyline>
+                </svg>
+              ) : (
+                <svg 
+                  width="20" 
+                  height="20" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke={isHovered ? '#d97706' : '#ffa600'} 
+                  strokeWidth="2"
+                  style={{ transition: 'stroke 0.2s ease-in-out' }}
+                >
+                  <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+                </svg>
+              )}
+              {formatFileName(file.filename)}
+            </div>
+            <div style={{ 
+              fontSize: '12px', 
+              color: isHovered ? '#4a5568' : '#666', 
+              marginTop: '4px',
+              transition: 'color 0.2s ease-in-out'
+            }}>
+              Size: {file.size} MB | 
+              Last Modified: {new Date(file.lastModified).toLocaleString()}
+            </div>
+          </div>
+        </Link>
+        {isAdmin && (
+          <button
+            onClick={() => handleDelete(file.name)}
+            style={{
+              padding: '6px 12px',
+              backgroundColor: isHovered ? '#c82333' : '#dc3545',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              fontSize: '14px',
+              cursor: 'pointer',
+              marginLeft: '10px',
+              transition: 'background-color 0.2s'
+            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#c82333'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#dc3545'}
+          >
+            Delete
+          </button>
+        )}
+      </div>
+    );
   };
 
   if (loading) {
@@ -339,106 +495,13 @@ function VideoListPage() {
                               {expandedSections[`${batch}/${subject}/${topic}`] && (
                                 <div style={{ marginLeft: '30px' }}>
                                   {videos.map((video) => (
-                                    <div
+                                    <FileItem
                                       key={video.name}
-                                      style={{
-                                        padding: '10px',
-                                        marginTop: '5px',
-                                        backgroundColor: '#fff',
-                                        borderRadius: '4px',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                                      }}
-                                    >
-                                      <Link 
-                                        to={video.storageClass === 'DEEP_ARCHIVE' ? '#' : `/play/${encodeURIComponent(video.name)}`}
-                                        style={{
-                                          textDecoration: 'none',
-                                          width: '100%',
-                                          cursor: video.storageClass === 'DEEP_ARCHIVE' ? 'not-allowed' : 'pointer',
-                                          opacity: video.storageClass === 'DEEP_ARCHIVE' ? 0.6 : 1,
-                                        }}
-                                        onClick={async (e) => {
-                                          if (video.storageClass === 'DEEP_ARCHIVE') {
-                                            e.preventDefault();
-                                            alert('We recommend attending live classes, if you want to watch this video. Please contact administrator.');
-                                            return;
-                                          }
-
-                                          e.preventDefault();
-                                          const canView = await checkVideoViewLimit(video.name, user.email);
-                                          if (!canView) {
-                                            alert('You have reached the maximum views (2) for this video this week. Please try again next week or contact administrator.');
-                                            return;
-                                          }
-
-                                          // Record the view
-                                          await addDoc(collection(db, 'videoViews'), {
-                                            videoName: video.name,
-                                            userEmail: user.email,
-                                            viewedAt: Timestamp.now()
-                                          });
-
-                                          // Navigate to video
-                                          window.location.href = `/play/${encodeURIComponent(video.name)}`;
-                                        }}
-                                      >
-                                        <div>
-                                          <div style={{ 
-                                            fontSize: '14px', 
-                                            color: '#333',
-                                            transition: 'color 0.2s ease'
-                                          }}
-                                          onMouseEnter={(e) => {
-                                            if (video.storageClass !== 'DEEP_ARCHIVE') {
-                                              e.target.style.color = '#ffa600'
-                                            }
-                                          }}
-                                          onMouseLeave={(e) => e.target.style.color = '#333'}
-                                          >
-                                            {formatVideoName(video.filename)}
-                                            {video.storageClass === 'DEEP_ARCHIVE' && (
-                                              <span style={{
-                                                marginLeft: '8px',
-                                                fontSize: '12px',
-                                                padding: '2px 6px',
-                                                backgroundColor: '#f3f4f6',
-                                                color: '#6b7280',
-                                                borderRadius: '4px',
-                                              }}>
-                                                Permission Required
-                                              </span>
-                                            )}
-                                          </div>
-                                          <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                                            Size: {video.size} MB | 
-                                            Last Modified: {new Date(video.lastModified).toLocaleString()}
-                                          </div>
-                                        </div>
-                                      </Link>
-                                      {isAdmin && (
-                                        <button
-                                          onClick={() => handleDelete(video.name)}
-                                          style={{
-                                            padding: '6px 12px',
-                                            backgroundColor: '#dc3545',
-                                            color: 'white',
-                                            border: 'none',
-                                            borderRadius: '4px',
-                                            fontSize: '14px',
-                                            cursor: 'pointer',
-                                            marginLeft: '10px',
-                                            transition: 'background-color 0.2s'
-                                          }}
-                                          onMouseOver={(e) => e.target.style.backgroundColor = '#c82333'}
-                                          onMouseOut={(e) => e.target.style.backgroundColor = '#dc3545'}
-                                        >
-                                          Delete
-                                        </button>
-                                      )}
-                                    </div>
+                                      file={video}
+                                      isAdmin={isAdmin}
+                                      handleDelete={handleDelete}
+                                      user={user}
+                                    />
                                   ))}
                                 </div>
                               )}
@@ -502,106 +565,13 @@ function VideoListPage() {
                       {expandedSections[`${subject}/${topic}`] && (
                         <div style={{ marginLeft: '30px' }}>
                           {videos.map((video) => (
-                            <div
+                            <FileItem
                               key={video.name}
-                              style={{
-                                padding: '10px',
-                                marginTop: '5px',
-                                backgroundColor: '#fff',
-                                borderRadius: '4px',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                              }}
-                            >
-                              <Link 
-                                to={video.storageClass === 'DEEP_ARCHIVE' ? '#' : `/play/${encodeURIComponent(video.name)}`}
-                                style={{
-                                  textDecoration: 'none',
-                                  width: '100%',
-                                  cursor: video.storageClass === 'DEEP_ARCHIVE' ? 'not-allowed' : 'pointer',
-                                  opacity: video.storageClass === 'DEEP_ARCHIVE' ? 0.6 : 1,
-                                }}
-                                onClick={async (e) => {
-                                  if (video.storageClass === 'DEEP_ARCHIVE') {
-                                    e.preventDefault();
-                                    alert('We recommend attending live classes, if you want to watch this video. Please contact administrator.');
-                                    return;
-                                  }
-
-                                  e.preventDefault();
-                                  const canView = await checkVideoViewLimit(video.name, user.email);
-                                  if (!canView) {
-                                    alert('You have reached the maximum views (2) for this video this week. Please try again next week or contact administrator.');
-                                    return;
-                                  }
-
-                                  // Record the view
-                                  await addDoc(collection(db, 'videoViews'), {
-                                    videoName: video.name,
-                                    userEmail: user.email,
-                                    viewedAt: Timestamp.now()
-                                  });
-
-                                  // Navigate to video
-                                  window.location.href = `/play/${encodeURIComponent(video.name)}`;
-                                }}
-                              >
-                                <div>
-                                  <div style={{ 
-                                    fontSize: '14px', 
-                                    color: '#333',
-                                    transition: 'color 0.2s ease'
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    if (video.storageClass !== 'DEEP_ARCHIVE') {
-                                      e.target.style.color = '#ffa600'
-                                    }
-                                  }}
-                                  onMouseLeave={(e) => e.target.style.color = '#333'}
-                                  >
-                                    {formatVideoName(video.filename)}
-                                    {video.storageClass === 'DEEP_ARCHIVE' && (
-                                      <span style={{
-                                        marginLeft: '8px',
-                                        fontSize: '12px',
-                                        padding: '2px 6px',
-                                        backgroundColor: '#f3f4f6',
-                                        color: '#6b7280',
-                                        borderRadius: '4px',
-                                      }}>
-                                        Permission Required
-                                      </span>
-                                    )}
-                                  </div>
-                                  <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                                    Size: {video.size} MB | 
-                                    Last Modified: {new Date(video.lastModified).toLocaleString()}
-                                  </div>
-                                </div>
-                              </Link>
-                              {isAdmin && (
-                                <button
-                                  onClick={() => handleDelete(video.name)}
-                                  style={{
-                                    padding: '6px 12px',
-                                    backgroundColor: '#dc3545',
-                                    color: 'white',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    fontSize: '14px',
-                                    cursor: 'pointer',
-                                    marginLeft: '10px',
-                                    transition: 'background-color 0.2s'
-                                  }}
-                                  onMouseOver={(e) => e.target.style.backgroundColor = '#c82333'}
-                                  onMouseOut={(e) => e.target.style.backgroundColor = '#dc3545'}
-                                >
-                                  Delete
-                                </button>
-                              )}
-                            </div>
+                              file={video}
+                              isAdmin={isAdmin}
+                              handleDelete={handleDelete}
+                              user={user}
+                            />
                           ))}
                         </div>
                       )}
