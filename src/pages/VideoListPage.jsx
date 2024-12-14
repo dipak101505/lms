@@ -4,6 +4,8 @@ import { collection, query, where, getDocs, addDoc, Timestamp } from 'firebase/f
 import { S3Client, ListObjectsV2Command, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
+import { AiFillFilePdf } from 'react-icons/ai';  // For PDF icon
+import { BsFillPlayCircleFill } from 'react-icons/bs';  // For video icon
 
 function VideoListPage() {
   const { user, isAdmin } = useAuth();
@@ -236,6 +238,7 @@ function VideoListPage() {
   const FileItem = ({ file, isAdmin, handleDelete, user }) => {
     const isPdf = file.type === 'pdf';
     const [isHovered, setIsHovered] = useState(false);
+    const isGlacier = file.storageClass === 'DEEP_ARCHIVE';
 
     return (
       <div
@@ -254,99 +257,90 @@ function VideoListPage() {
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <Link 
-          to={file.storageClass === 'DEEP_ARCHIVE' ? '#' : 
-              isPdf ? `/pdf/${encodeURIComponent(file.name)}` :
-              `/play/${encodeURIComponent(file.name)}`}
-          style={{
-            textDecoration: 'none',
-            width: '100%',
-            cursor: file.storageClass === 'DEEP_ARCHIVE' ? 'not-allowed' : 'pointer',
-            opacity: file.storageClass === 'DEEP_ARCHIVE' ? 0.6 : 1,
-          }}
-          onClick={async (e) => {
-            if (file.storageClass === 'DEEP_ARCHIVE') {
-              e.preventDefault();
-              alert('Please contact administrator for access.');
-              return;
-            }
-
-            if (isPdf) {
-              // For PDFs, open in new tab
-              e.preventDefault();
-              window.open(`/pdf/${encodeURIComponent(file.name)}`, '_blank');
-              return;
-            }
-
-            // Video view limit logic
-            e.preventDefault();
-            const canView = await checkVideoViewLimit(file.name, user.email);
-            if (!canView) {
-              alert('You have reached the maximum views (4) for this video this week. Please try again next week or contact administrator.');
-              return;
-            }
-
-            await addDoc(collection(db, 'videoViews'), {
-              videoName: file.name,
-              userEmail: user.email,
-              viewedAt: Timestamp.now()
-            });
-
-            window.location.href = `/play/${encodeURIComponent(file.name)}`;
-          }}
-        >
-          <div>
-            <div style={{ 
-              fontSize: '14px', 
-              color: isHovered ? '#2d3748' : '#333',
+        <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+          {isPdf ? (
+            <AiFillFilePdf 
+              size={24} 
+              color="#dc3545" 
+              style={{ marginRight: '10px' }}
+            />
+          ) : (
+            <BsFillPlayCircleFill 
+              size={24} 
+              color="#FF9800" 
+              style={{ marginRight: '10px' }}
+            />
+          )}
+          
+          <Link 
+            to={isGlacier ? '#' : 
+                isPdf ? `/pdf/${encodeURIComponent(file.name)}` :
+                `/play/${encodeURIComponent(file.name)}`}
+            style={{
+              textDecoration: 'none',
+              width: '100%',
+              cursor: isGlacier ? 'not-allowed' : 'pointer',
+              opacity: isGlacier ? 0.6 : 1,
+              color: '#333',
               display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              transition: 'color 0.2s ease-in-out'
+              alignItems: 'center'
+            }}
+            onClick={async (e) => {
+              if (isGlacier) {
+                e.preventDefault();
+                alert('Please contact administrator for access.');
+                return;
+              }
+
+              if (isPdf) {
+                // For PDFs, open in new tab
+                e.preventDefault();
+                window.open(`/pdf/${encodeURIComponent(file.name)}`, '_blank');
+                return;
+              }
+
+              // Video view limit logic
+              e.preventDefault();
+              const canView = await checkVideoViewLimit(file.name, user.email);
+              if (!canView) {
+                alert('You have reached the maximum views (4) for this video this week. Please try again next week or contact administrator.');
+                return;
+              }
+
+              await addDoc(collection(db, 'videoViews'), {
+                videoName: file.name,
+                userEmail: user.email,
+                viewedAt: Timestamp.now()
+              });
+
+              window.location.href = `/play/${encodeURIComponent(file.name)}`;
+            }}
+          >
+            {formatVideoName(file.filename)}
+            {isGlacier && (
+            <span style={{
+              backgroundColor: '#D3D3D3',
+              color: 'white',
+              padding: '2px 6px',
+              borderRadius: '4px',
+              fontSize: '11px',
+              marginLeft: '4px'
             }}>
-              {isPdf ? (
-                <svg 
-                  width="20" 
-                  height="20" 
-                  viewBox="0 0 24 24" 
-                  fill="none" 
-                  stroke={isHovered ? '#dc2626' : '#ff0000'} 
-                  strokeWidth="2"
-                  style={{ transition: 'stroke 0.2s ease-in-out' }}
-                >
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                  <polyline points="14 2 14 8 20 8"></polyline>
-                  <line x1="16" y1="13" x2="8" y2="13"></line>
-                  <line x1="16" y1="17" x2="8" y2="17"></line>
-                  <polyline points="10 9 9 9 8 9"></polyline>
-                </svg>
-              ) : (
-                <svg 
-                  width="20" 
-                  height="20" 
-                  viewBox="0 0 24 24" 
-                  fill="none" 
-                  stroke={isHovered ? '#d97706' : '#ffa600'} 
-                  strokeWidth="2"
-                  style={{ transition: 'stroke 0.2s ease-in-out' }}
-                >
-                  <polygon points="23 7 16 12 23 17 23 7"></polygon>
-                  <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-                </svg>
-              )}
-              {formatFileName(file.filename)}
-            </div>
-            <div style={{ 
-              fontSize: '12px', 
-              color: isHovered ? '#4a5568' : '#666', 
-              marginTop: '4px',
-              transition: 'color 0.2s ease-in-out'
-            }}>
-              Size: {file.size} MB | 
-              Last Modified: {new Date(file.lastModified).toLocaleString()}
-            </div>
-          </div>
-        </Link>
+              Access Required
+            </span>
+          )}
+          </Link>
+          
+        </div>
+        {isAdmin && <div style={{ 
+          fontSize: '12px', 
+          color: isHovered ? '#4a5568' : '#666', 
+          marginTop: '4px',
+          transition: 'color 0.2s ease-in-out'
+        }}>
+          Size: {file.size} MB | 
+          Last Modified: {new Date(file.lastModified).toLocaleString()}
+        </div>}
         {isAdmin && (
           <button
             onClick={() => handleDelete(file.name)}
