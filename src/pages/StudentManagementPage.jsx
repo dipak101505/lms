@@ -7,6 +7,7 @@ import SubjectForm from '../components/SubjectForm';
 import CentreForm from '../components/CentreForm';
 import EditStudentForm from '../components/EditStudentForm';
 import ZenithForm from '../components/ZenithForm';
+import InvoiceForm from '../components/InvoiceForm';
 
 function StudentManagementPage() {
   const [activeTab, setActiveTab] = useState('students');
@@ -254,7 +255,7 @@ function StudentManagementPage() {
         borderRadius: '12px',
         boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
       }}>
-        {['students', 'batches', 'subjects', 'centres'].map((tab) => (
+        {['students', 'batches', 'subjects', 'centres', 'invoice'].map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -752,6 +753,16 @@ function StudentManagementPage() {
           boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
         }}>
           <CentreForm centres={centres} setCentres={setCentres} />
+        </div>
+      )}
+      {activeTab === 'invoice' && (
+        <div style={{ 
+          background: 'white',
+          padding: '24px',
+          borderRadius: '12px',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+        }}>
+          <InvoiceForm students={students} />
         </div>
       )}
     </div>

@@ -176,14 +176,17 @@ const ZenithForm = ({ studentData, onClose }) => {
       }
 
       // Save receipt first
-      const receiptId = await saveToFirestore();
+      let receiptId=0;
+      if(studentData?.save!==false){
+        receiptId = await saveToFirestore();
+      }
 
       // Update student document with payment info
       if (studentData?.id) {
         const studentRef = doc(db, 'students', studentData.id);
         const studentDoc = await getDoc(studentRef);
         
-        if (studentDoc.exists()) {
+        if (studentDoc.exists() && studentData?.save!==false) {
           const payments = studentDoc.data().payments || [];
           const newPayment = {
             month: formData.month,
