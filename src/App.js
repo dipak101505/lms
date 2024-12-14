@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import MeetingsPage from './pages/MeetingsPage';
 import UploadPage from './pages/UploadPage';
@@ -17,13 +17,27 @@ import SignupPage from './pages/SignupPage';
 import AttendancePage from './pages/AttendancePage';
 import ReceiptPage from './pages/ReceiptPage';
 import PDFViewer from './components/PDFViewer';
+import ExamPage from './pages/ExamPage';
+import ExamInterfacePage from './pages/ExamInterfacePage';
+
+// Create a wrapper component for Navbar
+function NavbarWrapper() {
+  const location = useLocation();
+  
+  // Don't show navbar on exam interface page
+  if (location.pathname === '/exam-interface') {
+    return null;
+  }
+  
+  return <Navbar />;
+}
 
 function App() {
   return (
     <AuthProvider>
       <Router>
         <div className="App">
-          <Navbar />
+          <NavbarWrapper />
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/send-verification-email" element={<SendVerificationEmail />} />
@@ -43,6 +57,17 @@ function App() {
                 <VideoListPage />
               </PrivateRoute>
             } />
+            <Route path="/exams" element={
+              <PrivateRoute>
+                <ExamPage />
+              </PrivateRoute>
+            } />
+            <Route path="/exam-interface" element={
+              <PrivateRoute>
+                <ExamInterfacePage />
+              </PrivateRoute>
+            } />
+
             <Route path="/upload" element={
               <AdminRoute>
                 <UploadPage />

@@ -24,7 +24,7 @@ const ZenithForm = ({ studentData, onClose }) => {
     name: studentData?.name || '',
     month: currentMonth,
     admissionFee: '',
-    tuitionFee: '',
+    tuitionFee: studentData?.monthlyInstallment || 0,
     chequeNo: '',
     paymentMode: {
       cash: false,
@@ -196,7 +196,8 @@ const ZenithForm = ({ studentData, onClose }) => {
           };
 
           await updateDoc(studentRef, {
-            payments: [...payments, newPayment]
+            payments: [...payments, newPayment],
+            amountPending: studentDoc.data().amountPending - calculateTotal()
           });
         }
       }

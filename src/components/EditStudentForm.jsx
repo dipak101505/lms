@@ -22,6 +22,8 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
     dob: student.dob || '',
     school: student.school || '',
     amountPending: student.amountPending || 0,
+    paymentType: student.paymentType || 'lumpsum',
+    monthlyInstallment: student.monthlyInstallment || 0,
   });
   const [status, setStatus] = useState('');
   const [imageFile, setImageFile] = useState(null);
@@ -533,6 +535,65 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
               style={{ width: '100%', padding: '8px' }}
             />
           </div>
+
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '5px' }}>
+              Payment Type
+              <div style={{ marginTop: '5px' }}>
+                <label style={{ 
+                  marginRight: '20px', 
+                  display: 'inline-flex', 
+                  alignItems: 'center',
+                  cursor: 'pointer' 
+                }}>
+                  <input
+                    type="radio"
+                    name="paymentType"
+                    value="lumpsum"
+                    checked={formData.paymentType === 'lumpsum'}
+                    onChange={handleInputChange}
+                    style={{ marginRight: '5px' }}
+                  />
+                  Lump Sum
+                </label>
+                <label style={{ 
+                  display: 'inline-flex', 
+                  alignItems: 'center',
+                  cursor: 'pointer' 
+                }}>
+                  <input
+                    type="radio"
+                    name="paymentType"
+                    value="recurring"
+                    checked={formData.paymentType === 'recurring'}
+                    onChange={handleInputChange}
+                    style={{ marginRight: '5px' }}
+                  />
+                  Recurring
+                </label>
+              </div>
+            </label>
+          </div>
+
+          {formData.paymentType === 'recurring' && (
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '5px' }}>
+                Monthly Installment
+                <input
+                  type="number"
+                  name="monthlyInstallment"
+                  value={formData.monthlyInstallment}
+                  onChange={handleInputChange}
+                  min="0"
+                  style={{ 
+                    width: '100%', 
+                    padding: '8px',
+                    marginTop: '5px' 
+                  }}
+                />
+              </label>
+            </div>
+          )}
 
           <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
             <button

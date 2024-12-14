@@ -209,7 +209,7 @@ function VideoListPage() {
           view.viewedAt.toMillis() > weekAgo
         );
 
-      return recentViews.length < 2;
+      return recentViews.length < 4;
     } catch (error) {
       console.error('Error checking view limit:', error);
       return true; // Allow view on error
@@ -282,7 +282,7 @@ function VideoListPage() {
             e.preventDefault();
             const canView = await checkVideoViewLimit(file.name, user.email);
             if (!canView) {
-              alert('You have reached the maximum views (2) for this video this week. Please try again next week or contact administrator.');
+              alert('You have reached the maximum views (4) for this video this week. Please try again next week or contact administrator.');
               return;
             }
 
