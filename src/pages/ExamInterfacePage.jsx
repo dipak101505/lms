@@ -348,10 +348,37 @@ const QuestionText = () => {
   );
 };
 
+const ExamHeader = ({ examData }) => {
+  if (!examData) return null;
+  return (
+    <div className="exam-header">
+      <h2>{examData.name}</h2>
+      <p>{examData.description}</p>
+      <div>
+        <span>Code: {examData.code}</span>
+        <span>Status: {examData.status}</span>
+      </div>
+    </div>
+  );
+};
+
+const Timer = styled.div`
+  /* ... other styles ... */
+  ${({ $timeLeft }) => `
+    color: ${$timeLeft < 300 ? 'red' : 'inherit'};
+  `}
+`;
+
 function ExamInterfacePage() {
   const location = useLocation();
-  const examData = location.state?.examData;
+  // const examData = location.state?.examData;
+  const examData = {};
   
+  // Add validation
+  if (!examData) {
+    return <div>Loading exam data...</div>;
+  }
+
   const [currentSlide, setCurrentSlide] = useState(0);
   const [questions, setQuestions] = useState({});
   const [topics, setTopics] = useState([]);
@@ -565,7 +592,7 @@ function ExamInterfacePage() {
 
         <TimeSection>
           {examData?.subject || 'Section'}
-          <TimeLeft timeLeft={timeLeft}>Time Left: {formatTime(timeLeft)}</TimeLeft>
+          <Timer $timeLeft={timeLeft}>Time Left: {formatTime(timeLeft)}</Timer>
         </TimeSection>
 
         <SectionNames>
@@ -739,4 +766,4 @@ function ExamInterfacePage() {
   );
 }
 
-export default ExamInterfacePage; 
+export default ExamInterfacePage;

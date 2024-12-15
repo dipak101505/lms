@@ -9,6 +9,9 @@ function ExamPage() {
   const [loading, setLoading] = useState(true);
   const [batches, setBatches] = useState([]);
   const [subjects, setSubjects] = useState([]);
+  const [selectedSections, setSelectedSections] = useState([]);
+  const [sections, setSections] = useState([]); // Will store available sections
+
   const [formData, setFormData] = useState({
     name: '',
     subject: '',
@@ -90,6 +93,7 @@ function ExamPage() {
     try {
       await addDoc(collection(db, 'exams'), {
         ...formData,
+        sections: selectedSections,
         createdAt: new Date(),
         createdBy: user.email
       });
@@ -153,21 +157,20 @@ function ExamPage() {
     }
   };
 
+    // In ExamPage.jsx, update the handleStartExam function
   const handleStartExam = (exam) => {
-    // Navigate to exam interface with exam data
-    navigate('/exam-interface', { 
-      state: { 
-        examData: {
-          id: exam.id,
-          name: exam.name,
-          subject: exam.subject,
-          duration: exam.duration,
-          totalMarks: exam.totalMarks,
-          date: exam.date,
-          time: exam.time
+    exam.subject = subjects;
+    if (isAdmin) {
+      navigate('/edit-exam', {
+        state: { examData: exam }
+      });
+    } else {
+      navigate('/exam-interface', { 
+        state: { 
+          examData: exam
         }
-      }
-    });
+      });
+    }
   };
 
   return (
@@ -232,30 +235,45 @@ function ExamPage() {
                     ))}
                   </select>
                 </label>
-              </div>
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#4a5568' }}>
-                  Subject
-                  <select
-                    value={formData.subject}
-                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                    required
-                    style={{
-                      width: '100%',
+                </div>
+                <div style={{ marginBottom: '24px' }}>
+                <label style={{ 
+                  display: 'block', 
+                  marginBottom: '8px', 
+                  color: '#4a5568' 
+                }}>
+                  Sections
+                </label>
+                <div style={{ 
+                  display: 'grid', 
+                  gridTemplateColumns: 'repeat(3, 1fr)', 
+                  gap: '12px' 
+                }}>
+                  {subjects.map(section => (
+                    <label key={section.id} style={{ 
+                      display: 'flex', 
+                      alignItems: 'center',
                       padding: '8px',
                       border: '1px solid #e2e8f0',
                       borderRadius: '4px',
-                      backgroundColor: 'white'
-                    }}
-                  >
-                    <option value="">Select Subject</option>
-                    {subjects.map(subject => (
-                      <option key={subject.id} value={subject.name}>
-                        {subject.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+                      cursor: 'pointer'
+                    }}>
+                      <input
+                        type="checkbox"
+                        checked={selectedSections.includes(section.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedSections([...selectedSections, section.id]);
+                          } else {
+                            setSelectedSections(selectedSections.filter(id => id !== section.id));
+                          }
+                        }}
+                        style={{ marginRight: '8px' }}
+                      />
+                      {section.name}
+                    </label>
+                  ))}
+                </div>
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#4a5568' }}>
@@ -393,7 +411,9 @@ function ExamPage() {
                     >
                       {exam.name}
                     </td>
-                    <td style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>{exam.subject}</td>
+                    <td style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>{exam.sections?.map(sectionId => 
+        subjects.find(s => s.id === sectionId)?.name
+      ).join(', ')}</td>
                     <td style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>{exam.date}</td>
                     <td style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>{exam.time}</td>
                     <td style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>{exam.duration} mins</td>

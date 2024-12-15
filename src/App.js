@@ -19,6 +19,7 @@ import ReceiptPage from './pages/ReceiptPage';
 import PDFViewer from './components/PDFViewer';
 import ExamPage from './pages/ExamPage';
 import ExamInterfacePage from './pages/ExamInterfacePage';
+import EditExamPage from './pages/EditExamPage';
 
 // Create a wrapper component for Navbar
 function NavbarWrapper() {
@@ -96,6 +97,11 @@ function App() {
             <Route path="/attendance" element={
               <AdminRoute>
                 <AttendancePage />
+              </AdminRoute>
+            } />
+            <Route path="/edit-exam" element={
+              <AdminRoute>
+                <EditExamPage />
               </AdminRoute>
             } />
             <Route path="/change-password" element={
