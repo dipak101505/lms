@@ -372,13 +372,7 @@ const Timer = styled.div`
 function ExamInterfacePage() {
   const location = useLocation();
   // const examData = location.state?.examData;
-  const examData = {};
-  
-  // Add validation
-  if (!examData) {
-    return <div>Loading exam data...</div>;
-  }
-
+  let examData = {};
   const [currentSlide, setCurrentSlide] = useState(0);
   const [questions, setQuestions] = useState({});
   const [topics, setTopics] = useState([]);
@@ -431,7 +425,6 @@ function ExamInterfacePage() {
   useEffect(() => {
     // Use sample topics instead of fetching
     setTopics(sampleTopics);
-    
     // Load initial topic
     if (sampleTopics.length > 0) {
       loadTopic(sampleTopics[0].id);
@@ -563,7 +556,7 @@ function ExamInterfacePage() {
         </header>
 
         <Header1>
-          Paper1
+          {examData.name} - {examData.id}
           <div style={{ 
             color: '#FFFFFF',
             fontFamily: 'arial,verdana,helvetica,sans-serif',
@@ -582,7 +575,7 @@ function ExamInterfacePage() {
             margin: '0px 10px',
             fontWeight: 'bold'
           }}>
-            <div>Question Paper</div>
+            <div>Question Paper {examData.name} - {examData.id}</div>
           </div>
         </Header1>
 
