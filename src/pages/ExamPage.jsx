@@ -165,11 +165,8 @@ function ExamPage() {
         state: { examData: exam }
       });
     } else {
-      navigate('/exam-interface', { 
-        state: { 
-          examData: exam
-        }
-      });
+      navigate(`/exam-interface/${exam.id}`);
+
     }
   };
 

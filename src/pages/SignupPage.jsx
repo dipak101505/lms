@@ -146,8 +146,8 @@ function SignupPage() {
         });
 
         // Check loaded image dimensions
-        if (img.width > 2048 || img.height > 2048) {
-          return setError('Image dimensions should be less than 2048x2048 pixels');
+        if (img.width > 4000 || img.height > 4000) {
+          return setError('Image dimensions should be less than 4000*4000 pixels');
         }
 
         // Set canvas dimensions to match image

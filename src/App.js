@@ -26,7 +26,7 @@ function NavbarWrapper() {
   const location = useLocation();
   
   // Don't show navbar on exam interface page
-  if (location.pathname === '/exam-interface') {
+  if (location.pathname && location.pathname.includes('exam-interface')) {
     return null;
   }
   
@@ -63,7 +63,7 @@ function App() {
                 <ExamPage />
               </PrivateRoute>
             } />
-            <Route path="/exam-interface" element={
+            <Route path="/exam-interface/:examId" element={
               <PrivateRoute>
                 <ExamInterfacePage />
               </PrivateRoute>

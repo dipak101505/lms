@@ -351,6 +351,7 @@ function EditExamPage() {
                     metadata: {
                       ...currentQuestion.metadata,
                       section: e.target.value,
+                      sectionName: examData?.subject.find( s => s.id === e.target.value)?.name,
                     },
                   })
                 }

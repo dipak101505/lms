@@ -1,11 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import styled from 'styled-components';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 import { useLocation } from 'react-router-dom';
+import Katex from "@matejmazur/react-katex";
+import "katex/dist/katex.min.css";
+import { set } from 'firebase/database';
+
+const CONTENT_TYPES = {
+  TEXT: "text",
+  IMAGE: "image",
+  LATEX: "latex",
+  TABLE: "table",
+};
 
 // Styled Components
 const ExamContainer = styled.div`
@@ -327,39 +337,37 @@ const QuestionNumber = styled.div`
   }
 `;
 
-const QuestionText = () => {
-  return (
-    <div>
-      {/* For inline equations */}
-      <p>
-        The equation <InlineMath math="E = mc^2"/> represents...
-      </p>
-      
-      {/* For block equations */}
-      <BlockMath math="\int_0^\infty x^2 dx"/>
-      
-      {/* For mixed content */}
-      <p>
-        Given the quadratic equation <InlineMath math="ax^2 + bx + c = 0"/>, 
-        find the roots using:
-        <BlockMath math="\frac{-b \pm \sqrt{b^2-4ac}}{2a}"/>
-      </p>
-    </div>
-  );
-};
 
-const ExamHeader = ({ examData }) => {
-  if (!examData) return null;
-  return (
-    <div className="exam-header">
-      <h2>{examData.name}</h2>
-      <p>{examData.description}</p>
-      <div>
-        <span>Code: {examData.code}</span>
-        <span>Status: {examData.status}</span>
-      </div>
-    </div>
-  );
+const fetchExamData = async (examId) => {
+  try {
+    // Fetch exam data
+    const examRef = doc(db, 'exams', examId);
+    const examSnapshot = await getDoc(examRef);
+    
+    if (!examSnapshot.exists()) {
+      throw new Error('Exam not found');
+    }
+
+    // Fetch questions
+    const questionsRef = collection(db, `exams/${examId}/questions`);
+    const questionsSnapshot = await getDocs(questionsRef);
+    
+    const questions = questionsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // Combine exam data with questions
+    return {
+      id: examId,
+      ...examSnapshot.data(),
+      questions: questions
+    };
+
+  } catch (error) {
+    console.error('Error fetching exam data:', error);
+    throw error;
+  }
 };
 
 const Timer = styled.div`
@@ -372,7 +380,8 @@ const Timer = styled.div`
 function ExamInterfacePage() {
   const location = useLocation();
   // const examData = location.state?.examData;
-  let examData = {};
+  const examId = location.pathname.split('/').pop();
+  const [examData, setExamData] = useState(null);
   const [currentSlide, setCurrentSlide] = useState(0);
   const [questions, setQuestions] = useState({});
   const [topics, setTopics] = useState([]);
@@ -380,13 +389,9 @@ function ExamInterfacePage() {
   const { user } = useAuth();
   const [questionStatuses, setQuestionStatuses] = useState({});
   const [timeLeft, setTimeLeft] = useState(examData?.duration * 60 || 3 * 60 * 60); // 3 hours in seconds
-
-  // Sample topics data
-  const sampleTopics = [
-    { id: 'physics', name: 'Physics' },
-    { id: 'chemistry', name: 'Chemistry' },
-    { id: 'maths', name: 'Mathematics' }
-  ];
+  const [subjects, setSubjects] = useState([]);
+  const [questionsBySection, setQuestionsBySection] = useState(new Map());
+  const [selectedAnswers, setSelectedAnswers] = useState(new Map());
 
   // Sample questions data
   const sampleQuestions = {
@@ -423,24 +428,58 @@ function ExamInterfacePage() {
   };
 
   useEffect(() => {
-    // Use sample topics instead of fetching
-    setTopics(sampleTopics);
-    // Load initial topic
-    if (sampleTopics.length > 0) {
-      loadTopic(sampleTopics[0].id);
-    }
-  }, []);
+    const loadExam = async () => {
+      try {
+        const data = await fetchExamData(examId);
+        setExamData(data);
+        console.log('Exam data loaded:', data); // Debugging
+      } catch (err) {
+        console.error('Error loading exam:', err);
+      }
+    };
+
+    loadExam();
+  }, [examId]);
 
   useEffect(() => {
+    if (examData?.questions) {
+      // Get unique sections from questions
+      const uniqueSections = [...new Set(examData.questions.map(q => q.metadata.sectionName))];
+      const topicsFromSections = uniqueSections.map(section => ({
+        id: section,
+        name: section
+      })).filter(topic => topic.id); // Remove any undefined/null sections
+  
+      const questionMap = new Map();
+    
+    // Group questions by section
+    examData.questions.forEach(question => {
+      const section = question.metadata.sectionName;
+      if (!questionMap.has(section)) {
+        questionMap.set(section, []);
+      }
+      questionMap.get(section).push(question);
+    });
+    
+    setQuestionsBySection(questionMap);
+    console.log('Questions by section:', Object.fromEntries(questionMap)); // For debugging
+  
+      setSubjects(topicsFromSections);
+      loadTopic(topicsFromSections[0].id);
+      setTimeLeft(examData.duration * 60);
+    }
+  }, [examData]);
+
+  useEffect(() => {
+    let time=-10;
     const timer = setInterval(() => {
-      setTimeLeft(prevTime => {
-        if (prevTime <= 0) {
-          clearInterval(timer);
-          // Handle exam completion here
-          return 0;
-        }
-        return prevTime - 1;
-      });
+      if(time<=-10)
+      {
+        time=examData?.duration * 60;
+      }
+      if(time%60==0||time<60)
+        setTimeLeft(time);
+      time--;
     }, 1000);
 
     // Cleanup on component unmount
@@ -448,7 +487,6 @@ function ExamInterfacePage() {
   }, []);
 
   const loadTopic = async (topicId) => {
-    // Use sample questions instead of fetching
     setQuestions(sampleQuestions);
     setCurrentTopic(topicId);
     setCurrentSlide(0);
@@ -539,9 +577,35 @@ function ExamInterfacePage() {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    if(seconds>60)
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+    else
+    return `${secs.toString().padStart(2, '0')}`;
   };
+
+
+const ContentRenderer = ({ content }) => {
+  switch (content.type) {
+    case CONTENT_TYPES.TEXT:
+      return <span className="text-content">{content.value}</span>;
+    case CONTENT_TYPES.LATEX:
+      return <Katex math={content.value} />;
+    case CONTENT_TYPES.IMAGE:
+      return (
+        <div>
+        <img
+          src={content.value}
+          width={content.dimensions?.width}
+          height={content.dimensions?.height}
+          alt="Question content"
+          className="my-2"
+          style={{ marginTop: "10px", marginBottom: "10px" }}
+        /></div>
+      );
+    default:
+      return null;
+  }
+};
 
   return (
     <ExamContainer>
@@ -556,7 +620,7 @@ function ExamInterfacePage() {
         </header>
 
         <Header1>
-          {examData.name} - {examData.id}
+          {examData?.name} 
           <div style={{ 
             color: '#FFFFFF',
             fontFamily: 'arial,verdana,helvetica,sans-serif',
@@ -575,21 +639,21 @@ function ExamInterfacePage() {
             margin: '0px 10px',
             fontWeight: 'bold'
           }}>
-            <div>Question Paper {examData.name} - {examData.id}</div>
+            <div>Question Paper</div>
           </div>
         </Header1>
 
         <ExamName>
-          <ExamNameText>{examData?.name || 'Joint Entrance Exam'}</ExamNameText>
+          {/* <ExamNameText>{examData?.name || 'Joint Entrance Exam'}</ExamNameText> */}
         </ExamName>
 
         <TimeSection>
-          {examData?.subject || 'Section'}
+          {currentTopic || 'Section'}
           <Timer $timeLeft={timeLeft}>Time Left: {formatTime(timeLeft)}</Timer>
         </TimeSection>
 
         <SectionNames>
-          {topics.map((topic, index) => (
+          {subjects.map((topic, index) => (
             <SectionItem 
               key={topic.id}
               className={currentTopic === topic.id ? 'section_selected' : 'section_unselected'}
@@ -603,28 +667,10 @@ function ExamInterfacePage() {
         <QuestionArea>
           <QuestionTitle>
             <div>Question no. {currentSlide + 1}</div>
-            <button 
-              onClick={handleSaveQuestion}
-              style={{
-                float: 'right',
-                backgroundColor: questions[currentSlide + 1]?.f ? '#279' : '#fff',
-                color: questions[currentSlide + 1]?.f ? '#FFF' : '#000',
-                fontFamily: 'sans-serif',
-                fontSize: '15px',
-                borderRadius: '3px',
-                padding: '7px',
-                cursor: 'pointer',
-                marginBottom: '5px',
-                marginRight: '10px',
-                border: '1px solid #279'
-              }}
-            >
-              {questions[currentSlide + 1]?.f ? 'Saved' : 'Save'}
-            </button>
           </QuestionTitle>
 
           {/* Question content */}
-          {questions[currentSlide + 1] && (
+          {questionsBySection?.get(currentTopic)?.length >= currentSlide+1 && (
             <div style={{ opacity: 1, zIndex: 2, position: 'relative' }}>
               <div style={{ 
                 backgroundColor: '#ffffff',
@@ -632,8 +678,11 @@ function ExamInterfacePage() {
                 marginBottom: '10px',
                 padding: '20px'
               }}>
-                <QuestionText />
+                {questionsBySection.get(currentTopic)[currentSlide].contents?.map((content, i) => (
+                  <ContentRenderer key={i} content={content} />
+                ))}
               </div>
+
               <div style={{
                 backgroundColor: '#ffffff',
                 fontSize: '19px',
@@ -641,17 +690,29 @@ function ExamInterfacePage() {
                 textAlign: 'left',
                 display: 'inline-block',
                 padding: '10px'
-              }}>
-                {['o1', 'o2', 'o3', 'o4'].map((option, index) => (
-                  <label key={index} style={{ display: 'block', marginBottom: '10px' }}>
+              }}>                
+              {questionsBySection.get(currentTopic)[currentSlide].options?.map((option, optIndex) => (
+                  <div key={optIndex} style={{ display: 'block', marginBottom: '10px' }}>
                     <input 
                       type="radio" 
-                      name={`question${currentSlide + 1}`} 
-                      value={['A', 'B', 'C', 'D'][index]}
-                      onChange={handleAnswerSelect}
-                    />
-                    {questions[currentSlide + 1][option]}
-                  </label>
+                      name={`question${currentSlide + 1}`}
+                      value={['A', 'B', 'C', 'D'][optIndex]}
+                      checked={selectedAnswers.get(questionsBySection.get(currentTopic)[currentSlide].id) === ['A', 'B', 'C', 'D'][optIndex]}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          markAnswered(currentSlide);
+                        }
+                        setSelectedAnswers(prev => {
+                          const newAnswers = new Map(prev);
+                          newAnswers.set(questionsBySection.get(currentTopic)[currentSlide].id, e.target.value);
+                          return newAnswers;
+                        });
+                      }}
+                    />                    
+                    {option.contents?.map((content, i) => (
+                      <ContentRenderer key={i} content={content} />
+                    ))}
+                  </div>
                 ))}
               </div>
             </div>
@@ -675,6 +736,9 @@ function ExamInterfacePage() {
             const hasAnswer = document.querySelector(`input[name="question${currentSlide + 1}"]:checked`);
             if (hasAnswer) {
               markAnswered(currentSlide);
+            }
+            else {
+              markNotAnswered(currentSlide);
             }
             setCurrentSlide(prev => prev + 1);
           }}>
@@ -719,12 +783,12 @@ function ExamInterfacePage() {
 
         <div>
           <PaletteHeader>
-            {topics.find(topic => topic.id === currentTopic)?.name || 'Section'}
+            {currentTopic || 'Section'}
           </PaletteHeader>
           <QuestionPalette>
             <ChooseText>Choose a Question</ChooseText>
             <PaletteGrid>
-              {Object.keys(questions).map((_, index) => {
+              {Object.keys(questionsBySection.get(currentTopic) || {}).map((_, index) => {
                 const status = questionStatuses[index] || 'nv';
                 return (
                   <QuestionNumber 
