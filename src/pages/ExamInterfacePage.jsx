@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, getDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, getDoc, doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import styled from 'styled-components';
@@ -387,7 +387,7 @@ function ExamInterfacePage() {
   const [topics, setTopics] = useState([]);
   const [currentTopic, setCurrentTopic] = useState("");
   const { user } = useAuth();
-  const [questionStatuses, setQuestionStatuses] = useState({});
+  const [questionStatuses, setQuestionStatuses] = useState(new Map());
   const [timeLeft, setTimeLeft] = useState(examData?.duration * 60 || 3 * 60 * 60); // 3 hours in seconds
   const [subjects, setSubjects] = useState([]);
   const [questionsBySection, setQuestionsBySection] = useState(new Map());
@@ -492,57 +492,71 @@ function ExamInterfacePage() {
     setCurrentSlide(0);
   };
 
-  const handleSaveQuestion = async () => {
-    try {
-      const currentQuestion = questions[currentSlide + 1];
-      if (currentQuestion) {
-        const questionRef = doc(db, 'topics', currentTopic, 'questions', currentQuestion.id);
-        const isSaved = currentQuestion.f;
-        
-        await updateDoc(questionRef, {
-          f: !isSaved
-        });
-
-        // Update local state
-        setQuestions(prev => ({
-          ...prev,
-          [currentSlide + 1]: {
-            ...prev[currentSlide + 1],
-            f: !isSaved
-          }
-        }));
-      }
-    } catch (error) {
-      console.error("Error saving question:", error);
-    }
-  };
+  
+const handleSubmit = async () => {
+  try {
+    const statusesObject = Object.fromEntries(
+      Array.from(questionStatuses.entries()).map(([topic, statusMap]) => [
+        topic,
+        Object.fromEntries(statusMap)
+      ])
+    );
+    
+    const examResultsRef = doc(db, 'examResults', `${examId}_${user.uid}`);
+    await setDoc(examResultsRef, {
+      examId,
+      userId: user.uid,
+      answers: Object.fromEntries(selectedAnswers),
+      questionStatuses: statusesObject,
+      submittedAt: new Date()
+    }, { merge: true });
+  } catch (error) {
+    console.error('Error submitting exam:', error);
+  }
+};
 
   const markAnswered = (questionIndex) => {
-    setQuestionStatuses(prev => ({
-      ...prev,
-      [questionIndex]: 'a'
-    }));
+    setQuestionStatuses(prev => {
+      const newStatuses = new Map(prev);
+      if (!newStatuses.has(currentTopic)) {
+        newStatuses.set(currentTopic, new Map());
+      }
+      newStatuses.get(currentTopic).set(questionIndex, 'a');
+      return newStatuses;
+    });
   };
 
   const markNotAnswered = (questionIndex) => {
-    setQuestionStatuses(prev => ({
-      ...prev,
-      [questionIndex]: 'na'
-    }));
+    setQuestionStatuses(prev => {
+      const newStatuses = new Map(prev);
+      if (!newStatuses.has(currentTopic)) {
+        newStatuses.set(currentTopic, new Map());
+      }
+      newStatuses.get(currentTopic).set(questionIndex, 'na');
+      return newStatuses;
+    });
   };
 
   const markForReview = (questionIndex) => {
-    setQuestionStatuses(prev => ({
-      ...prev,
-      [questionIndex]: 'mr'
-    }));
+    setQuestionStatuses(prev => {
+      const newStatuses = new Map(prev);
+      if (!newStatuses.has(currentTopic)) {
+        newStatuses.set(currentTopic, new Map());
+      }
+      newStatuses.get(currentTopic).set(questionIndex, 'mr');
+      return newStatuses;
+    });
   };
-
+  
   const markAnsweredAndReview = (questionIndex) => {
-    setQuestionStatuses(prev => ({
-      ...prev,
-      [questionIndex]: 'amr'
-    }));
+    setQuestionStatuses(prev => {
+      const newStatuses = new Map(prev);
+      if (!newStatuses.has(currentTopic)) {
+        newStatuses.set(currentTopic, new Map());
+      }
+      newStatuses.get(currentTopic).set(questionIndex, 'amr');
+      return newStatuses;
+    });
   };
 
   const handleClearResponse = () => {
@@ -740,7 +754,13 @@ const ContentRenderer = ({ content }) => {
             else {
               markNotAnswered(currentSlide);
             }
-            setCurrentSlide(prev => prev + 1);
+            if(currentSlide+1<questionsBySection.get(currentTopic).length)
+              setCurrentSlide(prev => prev + 1);
+            else if(subjects.findIndex((topic) => topic.id === currentTopic)+1<subjects.length)
+              {
+                setCurrentSlide(0);
+                loadTopic(subjects[subjects.findIndex((topic) => topic.id === currentTopic)+1].id);
+              }
           }}>
             Save and Next
           </Button>
@@ -789,7 +809,7 @@ const ContentRenderer = ({ content }) => {
             <ChooseText>Choose a Question</ChooseText>
             <PaletteGrid>
               {Object.keys(questionsBySection.get(currentTopic) || {}).map((_, index) => {
-                const status = questionStatuses[index] || 'nv';
+                const status = questionStatuses.get(currentTopic)?.get(index) || 'nv';
                 return (
                   <QuestionNumber 
                     key={index} 
@@ -816,7 +836,9 @@ const ContentRenderer = ({ content }) => {
           padding: '10px',
           borderTop: '1px solid #c3c3c1' 
         }}>
-          <Button style={{ width: '50%' }}>Submit</Button>
+          <Button style={{ width: '50%' }}
+          onClick={handleSubmit}
+          >Submit</Button>
         </div>
       </Sidebar>
     </ExamContainer>
@@ -824,3 +846,4 @@ const ContentRenderer = ({ content }) => {
 }
 
 export default ExamInterfacePage;
+
