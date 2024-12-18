@@ -560,14 +560,26 @@ const handleSubmit = async () => {
   };
 
   const handleClearResponse = () => {
-    const currentQuestion = questions[currentSlide + 1];
-    if (currentQuestion) {
-      // Clear the selected radio button
-      const radioButtons = document.querySelectorAll(`input[name="question${currentSlide + 1}"]`);
-      radioButtons.forEach(radio => {
-        radio.checked = false;
+    // Get current section's questions
+    const sectionQuestions = questionsBySection.get(currentTopic);
+    
+    if (sectionQuestions && sectionQuestions[currentSlide]) {
+      // Clear selected answer from state
+      setSelectedAnswers(prev => {
+        const newAnswers = new Map(prev);
+        newAnswers.delete(sectionQuestions[currentSlide].id);
+        return newAnswers;
       });
-      markNotAnswered(currentSlide);
+  
+      // Update question status
+      setQuestionStatuses(prev => {
+        const newStatuses = new Map(prev);
+        if (!newStatuses.has(currentTopic)) {
+          newStatuses.set(currentTopic, new Map());
+        }
+        newStatuses.get(currentTopic).set(currentSlide, 'na');
+        return newStatuses;
+      });
     }
   };
 
@@ -584,7 +596,13 @@ const handleSubmit = async () => {
     } else {
       markForReview(currentSlide);
     }
-    setCurrentSlide(prev => prev + 1);
+    if(currentSlide+1<questionsBySection.get(currentTopic).length)
+      setCurrentSlide(prev => prev + 1);
+    else if(subjects.findIndex((topic) => topic.id === currentTopic)+1<subjects.length)
+      {
+        setCurrentSlide(0);
+        loadTopic(subjects[subjects.findIndex((topic) => topic.id === currentTopic)+1].id);
+      }
   };
 
   const formatTime = (seconds) => {
