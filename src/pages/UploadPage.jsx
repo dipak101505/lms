@@ -230,13 +230,13 @@ function UploadPage() {
       } else {
         // Video Upload using Bunny Stream (existing code)
         const createResponse = await fetch(
-          `https://video.bunnycdn.com/library/${process.env.REACT_APP_BUNNY_LIBRARY_ID}/videos`,
+          `https://video.bunnycdn.com/library/359657/videos`,
           {
             method: 'POST',
             headers: {
               'Accept': 'application/json',
               'Content-Type': 'application/json',
-              'AccessKey': process.env.REACT_APP_BUNNY_STREAM_KEY
+              'AccessKey': 'a12e0bb1-1753-422b-8592a11c9c61-605b-46a8'
             },
             body: JSON.stringify({ title: fileName })
           }
@@ -290,8 +290,8 @@ function UploadPage() {
             reject(new Error('Upload cancelled'));
           };
 
-          xhr.open('PUT', `https://video.bunnycdn.com/library/${process.env.REACT_APP_BUNNY_LIBRARY_ID}/videos/${guid}`);
-          xhr.setRequestHeader('AccessKey', process.env.REACT_APP_BUNNY_STREAM_KEY);
+          xhr.open('PUT', `https://video.bunnycdn.com/library/359657/videos/${guid}`);
+          xhr.setRequestHeader('AccessKey', 'a12e0bb1-1753-422b-8592a11c9c61-605b-46a8');
           xhr.send(file);
         });
       }

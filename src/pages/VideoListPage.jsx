@@ -61,10 +61,10 @@ function VideoListPage() {
       try {
         // 1. Fetch videos from Bunny Stream
         const videoResponse = await fetch(
-          `https://video.bunnycdn.com/library/${process.env.REACT_APP_BUNNY_LIBRARY_ID}/videos`, 
+          `https://video.bunnycdn.com/library/359657/videos`, 
           {
             headers: {
-              'AccessKey': process.env.REACT_APP_BUNNY_STREAM_KEY
+              'AccessKey': 'a12e0bb1-1753-422b-8592a11c9c61-605b-46a8'
             }
           }
         );
@@ -149,11 +149,11 @@ function VideoListPage() {
       } else {
         // Delete from Bunny Stream
         const response = await fetch(
-          `https://video.bunnycdn.com/library/${process.env.REACT_APP_BUNNY_LIBRARY_ID}/videos/${file.bunnyVideoId}`, 
+          `https://video.bunnycdn.com/library/359657/videos/${file.bunnyVideoId}`, 
           {
             method: 'DELETE',
             headers: {
-              'AccessKey': process.env.REACT_APP_BUNNY_STREAM_KEY
+              'AccessKey': 'a12e0bb1-1753-422b-8592a11c9c61-605b-46a8'
             }
           }
         );
