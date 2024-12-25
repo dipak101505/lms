@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { ref, getDownloadURL } from 'firebase/storage';
+import { storage } from '../firebase/config';
 
 function PDFViewer() {
   const { pdfKey } = useParams();
@@ -11,46 +12,18 @@ function PDFViewer() {
   useEffect(() => {
     const fetchPDF = async () => {
       try {
-        const s3Client = new S3Client({
-          region: process.env.REACT_APP_AWS_REGION,
-          credentials: {
-            accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
-            secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
-          }
-        });
-
-        const command = new GetObjectCommand({
-          Bucket: 'zenithvideo',
-          Key: decodeURIComponent(pdfKey),
-        });
-
-        const response = await s3Client.send(command);
-        
-        // Convert the readable stream to blob
-        const chunks = [];
-        const reader = response.Body.getReader();
-        
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value);
-        }
-
-        const blob = new Blob(chunks, { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
+        const pdfRef = ref(storage, `pdfs/${decodeURIComponent(pdfKey)}`);
+        const url = await getDownloadURL(pdfRef);
         setPdfUrl(url);
         setLoading(false);
       } catch (err) {
         console.error('Error fetching PDF:', err);
-        setError('Failed to load PDF');
+        setError(err.message);
         setLoading(false);
       }
     };
 
     fetchPDF();
-    return () => {
-      if (pdfUrl) URL.revokeObjectURL(pdfUrl);
-    };
   }, [pdfKey]);
 
   if (loading) {
@@ -79,20 +52,8 @@ function PDFViewer() {
         flexDirection: 'column',
         gap: '1rem'
       }}>
-        <div>Error: {error}</div>
-        <button 
-          onClick={() => window.history.back()}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#ffa600',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
-        >
-          Go Back
-        </button>
+        <div>Error loading PDF: {error}</div>
+        <button onClick={() => window.history.back()}>Go Back</button>
       </div>
     );
   }

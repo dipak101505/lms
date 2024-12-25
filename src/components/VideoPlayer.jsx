@@ -1,57 +1,32 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import Artplayer from 'artplayer';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import Hls from 'hls.js';
 import { useParams } from 'react-router-dom';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-const VideoPlayer = ({ bucketName, videoKey }) => {
+const VideoPlayer = () => {
   const artRef = useRef();
-  const [videoUrl, setVideoUrl] = useState('');
-  const [error, setError] = useState(null);
-  const { videoKey:urlVideoKey } = useParams();
+  const { videoKey } = useParams();
 
   useEffect(() => {
-    const getS3Url = async () => {
-      try {
-        const s3Client = new S3Client({
-          region: process.env.REACT_APP_AWS_REGION,
-          credentials: {
-            accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
-            secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
-          },
-          headers: {
-            'Referer': window.location.origin,
-            'Range': 'bytes=0-'
-          }
-        });
-
-        const command = new GetObjectCommand({
-          Bucket: "zenithvideo",
-          Key: urlVideoKey
-        });
-
-        const url = await getSignedUrl(s3Client, command, { 
-          expiresIn: 3600,
-          ResponseContentType: 'video/mp4',
-          ResponseCacheControl: 'no-cache',
-          ResponseContentDisposition: 'inline'
-        });
-        setVideoUrl(url);
-      } catch (err) {
-        console.error('Error getting signed URL:', err);
-        setError(err.message);
+    // Function to handle HLS playback
+    function playM3u8(video, url, art) {
+      if (Hls.isSupported()) {
+        if (art.hls) art.hls.destroy();
+        const hls = new Hls();
+        hls.loadSource(url);
+        hls.attachMedia(video);
+        art.hls = hls;
+        art.on('destroy', () => hls.destroy());
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = url;
+      } else {
+        art.notice.show = 'HLS is not supported in this browser';
       }
-    };
-
-    getS3Url();
-  }, [urlVideoKey]);
-
-  useEffect(() => {
-    if (!videoUrl) return;
+    }
     
     const art = new Artplayer({
         container: artRef.current,
-        url: videoUrl,
+        url: `https://vz-d5d4ebc7-6d2.b-cdn.net/${videoKey}/playlist.m3u8`,
         volume: 0.5,
         isLive: false,
         muted: false,
@@ -83,19 +58,7 @@ const VideoPlayer = ({ bucketName, videoKey }) => {
           'x-playsinline': 'true'
         },
         customType: {
-          mp4: function(video, url) {
-            video.src = url;
-            video.addEventListener('loadedmetadata', () => {
-              if (video.buffered.length) {
-                const bufferSize = 15;
-                const currentTime = video.currentTime;
-                if (currentTime + bufferSize < video.duration) {
-                  video.currentTime = currentTime + bufferSize;
-                  video.currentTime = currentTime;
-                }
-              }
-            });
-          }
+          m3u8: playM3u8
         }
     });
 
@@ -104,12 +67,10 @@ const VideoPlayer = ({ bucketName, videoKey }) => {
         art.destroy(false);
       }
     };
-  }, [videoUrl]);
+  }, [videoKey]);
 
   return (
     <div>
-      {error && <div style={{ color: 'red' }}>Error: {error}</div>}
-      {!videoUrl && !error && <div>Loading video...</div>}
       <div ref={artRef} style={{ width: '100%', height: '500px' }} />
     </div>
   );

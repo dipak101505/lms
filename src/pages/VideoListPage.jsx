@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { collection, query, where, getDocs, addDoc, Timestamp } from 'firebase/firestore';
-import { S3Client, ListObjectsV2Command, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
-import { AiFillFilePdf } from 'react-icons/ai';  // For PDF icon
-import { BsFillPlayCircleFill } from 'react-icons/bs';  // For video icon
+import { AiFillFilePdf } from 'react-icons/ai';
+import { BsFillPlayCircleFill } from 'react-icons/bs';
+import { ref, uploadBytes, getDownloadURL, listAll, getMetadata, deleteObject } from 'firebase/storage';
+import { storage } from '../firebase/config';
 
 function VideoListPage() {
   const { user, isAdmin } = useAuth();
@@ -51,90 +52,121 @@ function VideoListPage() {
 
   // Only fetch videos if student is active
   useEffect(() => {
-    const fetchVideos = async () => {
-      // Skip if student is inactive
+    const fetchFiles = async () => {
       if (!isAdmin && (!studentData || studentData.status !== 'active')) {
+        setLoading(false);
         return;
       }
 
       try {
-        const s3Client = new S3Client({
-          region: process.env.REACT_APP_AWS_REGION,
-          credentials: {
-            accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
-            secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
-          },
-          headers: {
-            'Referer': window.location.origin
+        // 1. Fetch videos from Bunny Stream
+        const videoResponse = await fetch(
+          `https://video.bunnycdn.com/library/${process.env.REACT_APP_BUNNY_LIBRARY_ID}/videos`, 
+          {
+            headers: {
+              'AccessKey': process.env.REACT_APP_BUNNY_STREAM_KEY
+            }
           }
-        });
+        );
+        
+        if (!videoResponse.ok) {
+          throw new Error(`HTTP error! status: ${videoResponse.status}`);
+        }
+        
+        // Process video files
+        const videoData = await videoResponse.json();
+        let videoFiles = videoData.items?.map(item => {
+          // Split title by underscores to get components
+          const [batch, subject, topic, subtopic] = item.title.split('_');
+          return {
+            name: item.title,
+            batch,
+            subject,
+            topic,
+            subtopic,
+            lastModified: new Date(item.dateUploaded),
+            size: (item.storageSize / 1024 / 1024).toFixed(2),
+            type: 'video',
+            bunnyVideoId: item.guid
+          };
+        }) || [];
 
-        const command = new ListObjectsV2Command({
-          Bucket: 'zenithvideo',
-        });
+        // 2. Fetch PDFs from Firebase Storage
+        const pdfListRef = ref(storage, 'pdfs');
+        const pdfList = await listAll(pdfListRef);
+        let pdfFiles = await Promise.all(
+          pdfList.items.map(async (item) => {
+            const name = item.name;
+            const nameParts = name.replace('.pdf', '').split('_');
+            const [batch, subject, topic, subtopic] = nameParts;
+            const metadata = await getMetadata(item);
+            
+            return {
+              name: name,
+              batch,
+              subject,
+              topic,
+              subtopic,
+              lastModified: new Date(metadata.timeCreated),
+              size: (metadata.size / 1024 / 1024).toFixed(2),
+              type: 'pdf'
+            };
+          })
+        );
 
-        const response = await s3Client.send(command);
-        let files = response.Contents.filter(item => 
-          item.Key.endsWith('.mp4') || item.Key.endsWith('.pdf')
-        ).map(item => ({
-          name: item.Key,
-          lastModified: item.LastModified,
-          size: (item.Size / 1024 / 1024).toFixed(2),
-          storageClass: item.StorageClass,
-          type: item.Key.endsWith('.pdf') ? 'pdf' : 'video'
-        }));
-
-        // Filter videos based on student's batch and subjects if not admin
+        // Combine and filter files
+        let allFiles = [...videoFiles, ...pdfFiles];
+        
         if (!isAdmin && studentData) {
-          files = files.filter(file => {
-            const [batch, subject] = file.name.split('/');
-            return studentData.batch === batch && 
-                   studentData.subjects?.includes(subject);
+          allFiles = allFiles.filter(file => {
+            return studentData.batch === file.batch && 
+                   studentData.subjects?.includes(file.subject);
           });
         }
 
-        setVideos(files);
+        setVideos(allFiles);
         setLoading(false);
       } catch (err) {
-        console.error('Error fetching videos:', err);
+        console.error('Error fetching files:', err);
         setError(err.message);
         setLoading(false);
       }
     };
 
-    // Only fetch videos if admin or active student
-    if (isAdmin || (studentData && studentData.status === 'active')) {
-      fetchVideos();
-    }
+    fetchFiles();
   }, [isAdmin, studentData]);
 
-  const handleDelete = async (videoKey) => {
-    if (!window.confirm('Are you sure you want to delete this video?')) {
+  const handleDelete = async (file) => {
+    if (!window.confirm('Are you sure you want to delete this file?')) {
       return;
     }
 
     try {
-      const s3Client = new S3Client({
-        region: process.env.REACT_APP_AWS_REGION,
-        credentials: {
-          accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
-          secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
-        },
-        headers: {
-          'Referer': window.location.origin
-        }
-      });
+      if (file.type === 'pdf') {
+        // Delete from Firebase Storage
+        const pdfRef = ref(storage, `pdfs/${file.name}`);
+        await deleteObject(pdfRef);
+      } else {
+        // Delete from Bunny Stream
+        const response = await fetch(
+          `https://video.bunnycdn.com/library/${process.env.REACT_APP_BUNNY_LIBRARY_ID}/videos/${file.bunnyVideoId}`, 
+          {
+            method: 'DELETE',
+            headers: {
+              'AccessKey': process.env.REACT_APP_BUNNY_STREAM_KEY
+            }
+          }
+        );
 
-      const command = new DeleteObjectCommand({
-        Bucket: 'zenithvideo',
-        Key: videoKey,
-      });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
-      await s3Client.send(command);
-      setVideos(prevVideos => prevVideos.filter(v => v.name !== videoKey));
+      // Update UI
+      setVideos(prevFiles => prevFiles.filter(f => f.name !== file.name));
+      alert('File deleted successfully');
     } catch (err) {
-      console.error('Error deleting video:', err);
-      alert('Failed to delete video: ' + err.message);
+      console.error('Error deleting file:', err);
+      alert('Failed to delete file: ' + err.message);
     }
   };
 
@@ -142,8 +174,8 @@ function VideoListPage() {
   const organizeVideos = () => {
     const structure = {};
     
-    videos.forEach(video => {
-      const [batch, subject, topic, filename] = video.name.split('/');
+    videos.forEach(file => {
+      const { batch, subject, topic, subtopic } = file;
       
       if (isAdmin) {
         // Admin view - show all levels including batch
@@ -152,8 +184,8 @@ function VideoListPage() {
         if (!structure[batch][subject][topic]) structure[batch][subject][topic] = [];
         
         structure[batch][subject][topic].push({
-          ...video,
-          filename
+          ...file,
+          filename: subtopic || 'untitled'
         });
       } else {
         // Student view - skip batch level
@@ -161,8 +193,8 @@ function VideoListPage() {
         if (!structure[subject][topic]) structure[subject][topic] = [];
         
         structure[subject][topic].push({
-          ...video,
-          filename
+          ...file,
+          filename: subtopic || 'untitled'
         });
       }
     });
@@ -237,73 +269,51 @@ function VideoListPage() {
 
   const FileItem = ({ file, isAdmin, handleDelete, user }) => {
     const isPdf = file.type === 'pdf';
-    const [isHovered, setIsHovered] = useState(false);
-    const isGlacier = file.storageClass === 'DEEP_ARCHIVE';
+    const displayName = file.subtopic || 'untitled';
+
+    const handlePdfClick = (e) => {
+      e.preventDefault();
+      window.location.href = `/pdf/${encodeURIComponent(file.name)}`;
+    };
 
     return (
-      <div
-        style={{
-          padding: '10px',
-          marginTop: '5px',
-          backgroundColor: isHovered ? '#f8f9fa' : '#fff',
-          borderRadius: '4px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          boxShadow: isHovered ? '0 2px 4px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.1)',
-          transition: 'all 0.2s ease-in-out',
-          border: `1px solid ${isHovered ? '#e2e8f0' : 'transparent'}`
-        }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-          {isPdf ? (
-            <AiFillFilePdf 
-              size={24} 
-              color="#dc3545" 
-              style={{ marginRight: '10px' }}
-            />
-          ) : (
-            <BsFillPlayCircleFill 
-              size={24} 
-              color="#FF9800" 
-              style={{ marginRight: '10px' }}
-            />
-          )}
-          
-          <Link 
-            to={isGlacier ? '#' : 
-                isPdf ? `/pdf/${encodeURIComponent(file.name)}` :
-                `/play/${encodeURIComponent(file.name)}`}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        padding: '8px',
+        margin: '4px 0',
+        backgroundColor: '#fff',
+        borderRadius: '4px',
+        boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+      }}>
+        {isPdf ? (
+          <Link
+            to={`/pdf/${encodeURIComponent(file.name)}`}
+            onClick={handlePdfClick}
             style={{
-              textDecoration: 'none',
-              width: '100%',
-              cursor: isGlacier ? 'not-allowed' : 'pointer',
-              opacity: isGlacier ? 0.6 : 1,
-              color: '#333',
               display: 'flex',
-              alignItems: 'center'
+              alignItems: 'center',
+              color: '#4a5568',
+              textDecoration: 'none',
+              flex: 1
             }}
+          >
+            <AiFillFilePdf style={{ color: '#e53e3e', marginRight: '8px', fontSize: '24px' }} />
+            <div>
+              <div style={{ fontWeight: '500' }}>{displayName}</div>
+              <div style={{ fontSize: '12px', color: '#718096' }}>
+                {file.size} MB • {new Date(file.lastModified).toLocaleDateString()}
+              </div>
+            </div>
+          </Link>
+        ) : (
+          <Link
+            to={`/play/${file.bunnyVideoId}`}
             onClick={async (e) => {
-              if (isGlacier) {
-                e.preventDefault();
-                alert('Please contact administrator for access.');
-                return;
-              }
-
-              if (isPdf) {
-                // For PDFs, open in new tab
-                e.preventDefault();
-                window.open(`/pdf/${encodeURIComponent(file.name)}`, '_blank');
-                return;
-              }
-
-              // Video view limit logic
               e.preventDefault();
               const canView = await checkVideoViewLimit(file.name, user.email);
               if (!canView) {
-                alert('You have reached the maximum views (10) for this video this week. Please try again next week or contact administrator.');
+                alert('You have reached the maximum views for this video this week.');
                 return;
               }
 
@@ -313,50 +323,39 @@ function VideoListPage() {
                 viewedAt: Timestamp.now()
               });
 
-              window.location.href = `/play/${encodeURIComponent(file.name)}`;
+              window.location.href = `/play/${file.bunnyVideoId}`;
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              color: '#4a5568',
+              textDecoration: 'none',
+              flex: 1
             }}
           >
-            {formatVideoName(file.filename)}
-            {isGlacier && (
-            <span style={{
-              backgroundColor: '#D3D3D3',
-              color: 'white',
-              padding: '2px 6px',
-              borderRadius: '4px',
-              fontSize: '11px',
-              marginLeft: '4px'
-            }}>
-              Access Required
-            </span>
-          )}
+            <BsFillPlayCircleFill style={{ color: '#ffa600', marginRight: '8px', fontSize: '24px' }} />
+            <div>
+              <div style={{ fontWeight: '500' }}>{displayName}</div>
+              <div style={{ fontSize: '12px', color: '#718096' }}>
+                {file.size} MB • {new Date(file.lastModified).toLocaleDateString()}
+              </div>
+            </div>
           </Link>
-          
-        </div>
-        {isAdmin && <div style={{ 
-          fontSize: '12px', 
-          color: isHovered ? '#4a5568' : '#666', 
-          marginTop: '4px',
-          transition: 'color 0.2s ease-in-out'
-        }}>
-          Size: {file.size} MB | 
-          Last Modified: {new Date(file.lastModified).toLocaleString()}
-        </div>}
+        )}
+
         {isAdmin && (
           <button
-            onClick={() => handleDelete(file.name)}
+            onClick={() => handleDelete(file)}
             style={{
-              padding: '6px 12px',
-              backgroundColor: isHovered ? '#c82333' : '#dc3545',
-              color: 'white',
-              border: 'none',
+              padding: '4px 8px',
+              backgroundColor: '#fff',
+              border: '1px solid #e53e3e',
               borderRadius: '4px',
-              fontSize: '14px',
+              color: '#e53e3e',
               cursor: 'pointer',
-              marginLeft: '10px',
-              transition: 'background-color 0.2s'
+              marginLeft: '8px',
+              width: '60px'
             }}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#c82333'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#dc3545'}
           >
             Delete
           </button>
@@ -366,28 +365,11 @@ function VideoListPage() {
   };
 
   if (loading) {
-    return (
-      <div style={{ padding: '20px', textAlign: 'center' }}>
-        Loading videos...
-      </div>
-    );
+    return <div>Loading videos...</div>;
   }
 
   if (error) {
-    return (
-      <div style={{ 
-        padding: '20px', 
-        textAlign: 'center',
-        color: '#dc2626',
-        backgroundColor: '#fee2e2',
-        border: '1px solid #fecaca',
-        borderRadius: '8px',
-        margin: '20px',
-        fontSize: '16px'
-      }}>
-        {error}
-      </div>
-    );
+    return <div>Error: {error}</div>;
   }
 
   if (!isAdmin && (!studentData || studentData.status !== 'active')) {

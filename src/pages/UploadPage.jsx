@@ -6,6 +6,8 @@ import { useNavigate } from 'react-router-dom';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { ref, uploadBytes, getDownloadURL, listAll, getMetadata, uploadBytesResumable } from 'firebase/storage';
+import { storage } from '../firebase/config';
 
 
 function UploadPage() {
@@ -109,7 +111,7 @@ function UploadPage() {
     );
   }
 
-  const MAX_FILE_SIZE = 600 * 1024 * 1024; // 600MB
+  const MAX_FILE_SIZE = 2000 * 1024 * 1024; // 2000MB
 
   const formatFileSize = (bytes) => {
     if (bytes === 0) return '0 Bytes';
@@ -144,8 +146,8 @@ function UploadPage() {
       return;
     }
 
-    if (isPDF && selectedFile.size > 50 * 1024 * 1024) { // 50MB limit for PDFs
-      setFileError('PDF file size must be less than 50MB');
+    if (isPDF && selectedFile.size > 5 * 1024 * 1024) { // 50MB limit for PDFs
+      setFileError('PDF file size must be less than 5MB');
       setFile(null);
       return;
     }
@@ -191,78 +193,114 @@ function UploadPage() {
       return;
     }
 
-    // Check if topic is "new" but newTopic is empty
-    if (formData.topic === 'new' && !formData.newTopic) {
-      alert('Please enter a new topic name');
-      return;
-    }
-
     try {
       setUploadStatus('uploading');
-      const s3Client = new S3Client({
-        region: process.env.REACT_APP_AWS_REGION,
-        credentials: {
-          accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
-          secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
-        },
-        headers: {
-          'Referer': window.location.origin
-        }
-      });
+      setUploadProgress(0);
+      const fileName = `${formData.batch}_${formData.subject}_${formData.topic}_${formData.subtopic || 'untitled'}`;
 
-      const topicToUse = formData.topic === 'new' ? formData.newTopic : formData.topic;
-      const folderPath = `${formData.batch}/${formData.subject}/${topicToUse}`;
-      
-      // Determine file extension based on file type
-      const fileExtension = file.type === 'application/pdf' ? '.pdf' : '.mp4';
-      const fileName = formData.subtopic ? 
-        `${formData.subtopic}-${Date.now()}${fileExtension}` : 
-        `${Date.now()}${fileExtension}`;
-
-      const parallelUploads3 = new Upload({
-        client: s3Client,
-        params: {
-          Bucket: 'zenithvideo',
-          Key: `${folderPath}/${fileName}`,
-          Body: file,
-          ContentType: file.type, // This will set the correct content type
-        },
-        queueSize: 4,
-        partSize: 1024 * 1024 * 10,
-      });
-
-      uploadRef.current = parallelUploads3;
-      lastUploadedRef.current = 0;
-      timeRef.current = Date.now();
-
-      parallelUploads3.on("httpUploadProgress", (progress) => {
-        const percentage = Math.round((progress.loaded / progress.total) * 100);
-        setUploadProgress(percentage);
-
-        const currentTime = Date.now();
-        const timeDiff = (currentTime - timeRef.current) / 1000;
-        const bytesDiff = progress.loaded - lastUploadedRef.current;
-        const speed = bytesDiff / timeDiff;
-        setUploadSpeed(speed);
-
-        const remainingBytes = progress.total - progress.loaded;
-        const timeRemainingSeconds = remainingBytes / speed;
-        setTimeRemaining(timeRemainingSeconds);
-
-        lastUploadedRef.current = progress.loaded;
-        timeRef.current = currentTime;
-      });
-
-      await parallelUploads3.done();
-      setUploadStatus('success');
-      resetForm();
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        setUploadStatus('cancelled');
+      if (file.type === 'application/pdf') {
+        // Upload PDF to Firebase Storage
+        const storageRef = ref(storage, `pdfs/${fileName}.pdf`);
+        
+        // Create upload task with uploadBytesResumable
+        const uploadTask = uploadBytesResumable(storageRef, file);
+        
+        // Monitor upload progress
+        uploadTask.on(
+          'state_changed',
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            setUploadProgress(Math.round(progress));
+          },
+          (error) => {
+            console.error('Upload error:', error);
+            setUploadStatus('error');
+            setUploadProgress(0);
+            alert('Upload failed: ' + error.message);
+          },
+          async () => {
+            // Upload completed successfully
+            setUploadStatus('completed');
+            setUploadProgress(100);
+            setTimeout(() => {
+              navigate('/videos');
+            }, 1000);
+          }
+        );
       } else {
-        console.error('Upload error:', error);
-        setUploadStatus('error');
+        // Video Upload using Bunny Stream (existing code)
+        const createResponse = await fetch(
+          `https://video.bunnycdn.com/library/${process.env.REACT_APP_BUNNY_LIBRARY_ID}/videos`,
+          {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+              'AccessKey': process.env.REACT_APP_BUNNY_STREAM_KEY
+            },
+            body: JSON.stringify({ title: fileName })
+          }
+        );
+
+        if (!createResponse.ok) throw new Error('Failed to create video');
+        const { guid } = await createResponse.json();
+
+        return new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          uploadRef.current = xhr;
+
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const percentComplete = (event.loaded / event.total) * 100;
+              setUploadProgress(Math.round(percentComplete));
+
+              // Calculate upload speed
+              const currentTime = Date.now();
+              const timeElapsed = (currentTime - timeRef.current) / 1000;
+              const bytesPerSecond = (event.loaded - lastUploadedRef.current) / timeElapsed;
+              setUploadSpeed(bytesPerSecond);
+
+              // Calculate time remaining
+              const remainingBytes = event.total - event.loaded;
+              const remainingTime = remainingBytes / bytesPerSecond;
+              setTimeRemaining(remainingTime);
+
+              timeRef.current = currentTime;
+              lastUploadedRef.current = event.loaded;
+            }
+          };
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              setUploadStatus('success');
+              resolve();
+            } else {
+              setUploadStatus('error');
+              reject(new Error(`Upload failed with status ${xhr.status}`));
+            }
+          };
+
+          xhr.onerror = () => {
+            setUploadStatus('error');
+            reject(new Error('Upload failed'));
+          };
+
+          xhr.onabort = () => {
+            setUploadStatus('cancelled');
+            reject(new Error('Upload cancelled'));
+          };
+
+          xhr.open('PUT', `https://video.bunnycdn.com/library/${process.env.REACT_APP_BUNNY_LIBRARY_ID}/videos/${guid}`);
+          xhr.setRequestHeader('AccessKey', process.env.REACT_APP_BUNNY_STREAM_KEY);
+          xhr.send(file);
+        });
       }
+
+    } catch (error) {
+      console.error('Upload error:', error);
+      setUploadStatus('error');
+      setUploadProgress(0);
+      alert('Upload failed: ' + error.message);
     }
   };
 
@@ -585,7 +623,7 @@ function UploadPage() {
             >
               <input
                 type="file"
-                accept="video/mp4,video/x-matroska,.mkv,video/*,application/pdf"
+                accept="video/*,.pdf"
                 onChange={handleFileChange}
                 style={{ display: 'none' }}
                 id="video-upload"
@@ -604,7 +642,7 @@ function UploadPage() {
                       Drag and drop your video or PDF here or click to browse
                     </div>
                     <div style={{ color: '#718096', fontSize: '14px' }}>
-                      Maximum file size: 600MB for videos, 50MB for PDFs
+                      Maximum file size: 600MB for videos, 5MB for PDFs
                     </div>
                   </>
                 ) : (
@@ -773,7 +811,7 @@ function UploadPage() {
               e.target.style.boxShadow = 'none';
             }}
           >
-            {uploadStatus === 'uploading' ? 'Uploading...' : 'Upload Video'}
+            {uploadStatus === 'uploading' ? 'Uploading...' : `Upload ${file?.type === 'application/pdf' ? 'PDF' : 'Video'}`}
           </button>
         </form>
 
