@@ -20,7 +20,7 @@ const VideoPlayer = () => {
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         video.src = url;
       } else {
-        art.notice.show = 'HLS is not supported in this browser';
+        art.notice.show = 'HLS is not supported for this browser';
       }
     }
     
