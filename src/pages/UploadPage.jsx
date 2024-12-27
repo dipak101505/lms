@@ -188,7 +188,11 @@ function UploadPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!file || !formData.batch || !formData.subject || !formData.topic) {
+    
+    // Get the effective topic (either selected topic or new topic)
+    const effectiveTopic = formData.topic === 'new' ? formData.newTopic : formData.topic;
+    
+    if (!file || !formData.batch || !formData.subject || !effectiveTopic) {
       alert('Please fill all required fields');
       return;
     }
@@ -196,7 +200,7 @@ function UploadPage() {
     try {
       setUploadStatus('uploading');
       setUploadProgress(0);
-      const fileName = `${formData.batch}_${formData.subject}_${formData.topic}_${formData.subtopic || 'untitled'}`;
+      const fileName = `${formData.batch}_${formData.subject}_${effectiveTopic}_${formData.subtopic || 'untitled'}`;
 
       if (file.type === 'application/pdf') {
         // Upload PDF to Firebase Storage
