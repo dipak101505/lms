@@ -103,7 +103,7 @@ function UploadPage() {
   if (!user) {
     return (
       <div style={{ padding: '20px', textAlign: 'center' }}>
-        <p>Please log in to upload videos</p>
+        <p>Please log in to upload files</p>
         <button onClick={() => navigate('/login')}>
           Go to Login
         </button>
@@ -141,7 +141,7 @@ function UploadPage() {
     const isVideo = selectedFile.type.startsWith('video/');
 
     if (!isPDF && !isVideo) {
-      setFileError('Please upload a video or PDF file');
+      setFileError('Please upload a file or PDF file');
       setFile(null);
       return;
     }
@@ -153,7 +153,7 @@ function UploadPage() {
     }
 
     if (isVideo && selectedFile.size > MAX_FILE_SIZE) { // 600MB limit for videos
-      setFileError('Video file size must be less than 600MB');
+      setFileError('Video file size must be less than 2GB');
       setFile(null);
       return;
     }
@@ -338,7 +338,7 @@ function UploadPage() {
           color: '#2d3748',
           margin: '0px',
           fontWeight: '600'
-        }}>Upload Video</h1>
+        }}>Upload File</h1>
         <p style={{
           color: '#718096',
           fontSize: '15px',
@@ -556,7 +556,7 @@ function UploadPage() {
               fontSize: '14px',
               fontWeight: '500'
             }}>
-              Video Title (optional)
+              File Title (optional)
             </label>
             <input
               type="text"
@@ -646,7 +646,7 @@ function UploadPage() {
                       Drag and drop your video or PDF here or click to browse
                     </div>
                     <div style={{ color: '#718096', fontSize: '14px' }}>
-                      Maximum file size: 600MB for videos, 5MB for PDFs
+                      Maximum file size: 2GB for videos, 5MB for PDFs
                     </div>
                   </>
                 ) : (

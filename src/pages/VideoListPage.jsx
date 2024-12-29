@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { collection, query, where, getDocs, addDoc, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDoc, doc ,getDocs, setDoc, addDoc, Timestamp } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { AiFillFilePdf } from 'react-icons/ai';
@@ -15,6 +15,60 @@ function VideoListPage() {
   const [error, setError] = useState(null);
   const [expandedSections, setExpandedSections] = useState({});
   const [studentData, setStudentData] = useState(null);
+  const [accessibleFiles, setAccessibleFiles] = useState(new Set());
+  const [isSaving, setSaving] = useState(false);
+  const [batches, setBatches] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [selectedBatch, setSelectedBatch] = useState('');
+  const [selectedStudentEmail, setSelectedStudentEmail] = useState('');
+
+  // Fetch batches on mount
+  useEffect(() => {
+    const fetchBatches = async () => {
+      const studentsRef = collection(db, 'students');
+      const snapshot = await getDocs(studentsRef);
+      const uniqueBatches = [...new Set(
+        snapshot.docs.map(doc => doc.data().batch)
+      )].filter(Boolean);
+      setBatches(uniqueBatches);
+    };
+    fetchBatches();
+  }, []);
+
+  // Fetch students when batch changes
+  useEffect(() => {
+    const fetchStudents = async () => {
+      if (!selectedBatch) return;
+      
+      const studentsRef = collection(db, 'students');
+      const q = query(studentsRef, where('batch', '==', selectedBatch));
+      const snapshot = await getDocs(q);
+      const studentsList = snapshot.docs.map(doc => ({
+        email: doc.data().email,
+        name: doc.data().name
+      }));
+      setStudents(studentsList);
+    };
+    fetchStudents();
+  }, [selectedBatch]);
+
+
+  const handleSave = async () => {
+    if (isSaving || !selectedStudentEmail) return;
+    
+    setSaving(true);
+    try {
+      await setDoc(doc(db, 'VideoAccessGranted', selectedStudentEmail), {
+        files: Array.from(accessibleFiles).join(','),
+        updatedAt: Timestamp.now()
+      });
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
 
   // Fetch student data
   useEffect(() => {
@@ -61,7 +115,7 @@ function VideoListPage() {
       try {
         // 1. Fetch videos from Bunny Stream
         const videoResponse = await fetch(
-          `https://video.bunnycdn.com/library/359657/videos`, 
+          `https://video.bunnycdn.com/library/359657/videos?page=1&itemsPerPage=1000&orderBy=date`, 
           {
             headers: {
               'AccessKey': 'a12e0bb1-1753-422b-8592a11c9c61-605b-46a8'
@@ -75,6 +129,7 @@ function VideoListPage() {
         
         // Process video files
         const videoData = await videoResponse.json();
+        console.log('Video data:', videoData.items.length);
         let videoFiles = videoData.items?.map(item => {
           // Split title by underscores to get components
           const [batch, subject, topic, subtopic] = item.title.split('_');
@@ -267,9 +322,75 @@ function VideoListPage() {
       .join(' ');
   };
 
+  const checkVideoAccess = async (userId) => {
+    try {
+      // Get user's document from VideoAccessGranted collection
+      const docRef = doc(db, 'VideoAccessGranted', userId);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        // Get comma-separated filenames and convert to array
+        const accessibleFiles = docSnap.data().files?.split(',') || [];
+        return accessibleFiles;
+      }
+      return [];
+    } catch (error) {
+      console.error('Error checking video access:', error);
+      return [];
+    }
+  };
+
+  // Fetch accessible files once
+  useEffect(() => {
+    const fetchAccessibleFiles = async (email) => {
+      const docRef = doc(db, 'VideoAccessGranted', email);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        console.log('Selected student:', selectedStudentEmail);
+        const filesArray = docSnap.data().files?.split(',') || [];
+        setAccessibleFiles(new Set(filesArray));
+      }
+      else {
+        setAccessibleFiles(new Set());
+      }
+    };
+    if(selectedStudentEmail)
+    fetchAccessibleFiles(selectedStudentEmail);
+    else
+    fetchAccessibleFiles(user.email);
+  }, [selectedStudentEmail,user]);
+  
+  // Synchronous access check function
+  const ra = (file) => {
+    const twoWeeksInMilliseconds = 1 * 24 * 60 * 60 * 1000;
+    const fileAge = Date.now() - new Date(file.lastModified).getTime();
+    if(accessibleFiles.has(file.name))
+      return false; // File is accessible
+
+    if (fileAge < twoWeeksInMilliseconds) {
+      return false; // File is less than 2 weeks old, so it is accessible
+    }
+
+    return true; // File is older than 2 weeks, so it requires access
+  };
+
+  const handleCheckboxChange = (fileName, checked) => {
+    setAccessibleFiles(prev => {
+      const newSet = new Set(prev);
+      if (checked) {
+        newSet.add(fileName);
+      } else {
+        newSet.delete(fileName);
+      }
+      return newSet;
+    });
+  };
+
   const FileItem = ({ file, isAdmin, handleDelete, user }) => {
     const isPdf = file.type === 'pdf';
     const displayName = file.subtopic || 'untitled';
+    const requiresAccess = ra(file); 
 
     const handlePdfClick = (e) => {
       e.preventDefault();
@@ -284,8 +405,16 @@ function VideoListPage() {
         margin: '4px 0',
         backgroundColor: '#fff',
         borderRadius: '4px',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
+        boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+        cursor: requiresAccess && !isPdf ? 'not-allowed' : 'pointer',
+        opacity: requiresAccess && !isPdf ? 0.6 : 1,
       }}>
+        {isAdmin && <input
+              type="checkbox"
+              checked={accessibleFiles?.has(file.name)}
+              onChange={(e) => handleCheckboxChange(file.name, e.target.checked)}
+              className="w-4 h-4 rounded border-gray-300"
+            />}
         {isPdf ? (
           <Link
             to={`/pdf/${encodeURIComponent(file.name)}`}
@@ -311,6 +440,10 @@ function VideoListPage() {
             to={`/play/${file.bunnyVideoId}`}
             onClick={async (e) => {
               e.preventDefault();
+              if (requiresAccess) {
+                alert('This video is only accessible for 2 weeks after upload. To access it now, please contact your A.Pandit .');
+                return;
+              }
               const canView = await checkVideoViewLimit(file.name, user.email);
               if (!canView) {
                 alert('You have reached the maximum views for this video this week.');
@@ -394,6 +527,72 @@ function VideoListPage() {
   return (
     <div style={{ padding: '20px' }}>
       <h1>Video Library</h1>
+      {isAdmin && 
+      <div className="flex flex-col md:flex-row gap-4 mb-6 p-4 bg-gray-50 rounded-lg shadow-sm">
+      <div className="flex flex-col gap-2">
+        <label htmlFor="batch" className="text-sm font-medium text-gray-700">
+          Select Batch
+        </label>
+        <select 
+          id="batch"
+          value={selectedBatch} 
+          onChange={(e) => setSelectedBatch(e.target.value)}
+          className="
+            w-64
+            px-3 py-2
+            bg-white
+            border border-gray-300
+            rounded-md
+            shadow-sm
+            focus:outline-none
+            focus:ring-2
+            focus:ring-blue-500
+            focus:border-blue-500
+            text-sm
+          "
+          style={{ cursor: 'pointer', height: '40px', marginLeft: '10px' }}
+        >
+          <option value="">All Batches</option>
+          {batches.map(batch => (
+            <option key={batch} value={batch}>{batch}</option>
+          ))}
+        </select>
+      </div>
+    
+      <div className="flex flex-col gap-2">
+        <label htmlFor="student" className="text-sm font-medium text-gray-700">
+          Select Student
+        </label>
+        <select
+          id="student"
+          value={selectedStudentEmail}
+          onChange={(e) => setSelectedStudentEmail(e.target.value)}
+          className={`
+            w-64
+            px-3 py-2
+            bg-white
+            border border-gray-300
+            rounded-md
+            shadow-sm
+            text-sm
+            ${!selectedBatch ? 
+              'bg-gray-100 cursor-not-allowed' : 
+              'focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500'
+            }
+          `}
+          style={{ cursor: !selectedBatch ? 'not-allowed' : 'pointer', height: '40px', marginTop: '10px' , marginLeft: '10px'}}
+          disabled={!selectedBatch}
+        >
+          <option value="">Select Student</option>
+          {students.map(student => (
+            <option key={student.email} value={student.email}>
+              {student.name}
+            </option>
+          ))}
+        </select>
+      </div>
+    </div>}
+
       
       <div style={{ marginTop: '20px' }}>
         {isAdmin ? (
@@ -559,6 +758,22 @@ function VideoListPage() {
           ))
         )}
       </div>
+      {isAdmin && <button
+        onClick={handleSave}
+        disabled={isSaving}
+        className={`
+          px-4 py-2 rounded-md font-medium
+          ${isSaving ? 
+            'bg-gray-400 cursor-not-allowed' : 
+            'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
+          }
+          text-white transition-colors
+          disabled:opacity-50 disabled:cursor-not-allowed
+        `}
+        style={{maxWidth:"20vw", backgroundColor:"orange", color:"white", padding:"10px", borderRadius:"5px", border:"none", cursor:"pointer", marginTop:"20px"}}
+      >
+        {isSaving ? 'Saving...' : 'Save Changes'}
+      </button>}
     </div>
   );
 }
