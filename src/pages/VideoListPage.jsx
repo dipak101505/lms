@@ -363,7 +363,7 @@ function VideoListPage() {
   
   // Synchronous access check function
   const ra = (file) => {
-    const twoWeeksInMilliseconds = 1 * 24 * 60 * 60 * 1000;
+    const twoWeeksInMilliseconds = 14 * 24 * 60 * 60 * 1000;
     const fileAge = Date.now() - new Date(file.lastModified).getTime();
     if(accessibleFiles.has(file.name))
       return false; // File is accessible
