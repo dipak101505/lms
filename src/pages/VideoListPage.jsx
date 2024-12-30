@@ -107,7 +107,9 @@ function VideoListPage() {
   // Only fetch videos if student is active
   useEffect(() => {
     const fetchFiles = async () => {
-      if (!isAdmin && (!studentData || studentData.status !== 'active')) {
+      
+      if (!isAdmin && (!studentData || studentData?.status !== 'active')) {
+        if(studentData!==null) 
         setLoading(false);
         return;
       }
