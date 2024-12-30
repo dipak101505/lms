@@ -59,44 +59,40 @@ function UploadPage() {
   useEffect(() => {
     const fetchTopics = async () => {
       console.log('fetchTopics called with:', { batch: formData.batch, subject: formData.subject });
-
+  
       if (formData.batch && formData.subject) {
         try {
-          const s3Client = new S3Client({
-            region: process.env.REACT_APP_AWS_REGION,
-            credentials: {
-              accessKeyId: process.env.REACT_APP_AWS_ACCESS_KEY_ID,
-              secretAccessKey: process.env.REACT_APP_AWS_SECRET_ACCESS_KEY,
-            },
-            headers: {
-              'Referer': window.location.origin
+          // Fetch topics from BunnyNet Stream
+          const response = await fetch(
+            `https://video.bunnycdn.com/library/359657/videos?page=1&itemsPerPage=1000&orderBy=date`, 
+            {
+              headers: {
+                'AccessKey': 'a12e0bb1-1753-422b-8592a11c9c61-605b-46a8'
+              }
             }
-          });
-
-          debugger;
-
-          const command = new ListObjectsV2Command({
-            Bucket: 'zenithvideo',
-            Prefix: `${formData.batch}/${formData.subject}/`
-          });
-
-          const response = await s3Client.send(command);
+          );
+  
+          if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+          }
+  
+          const data = await response.json();
           const uniqueTopics = new Set();
           
-          response.Contents?.forEach(item => {
-            const parts = item.Key.split('/');
+          data.items.forEach(item => {
+            const parts = item.title.split('_');
             if (parts.length >= 3) {
               uniqueTopics.add(parts[2]);
             }
           });
-
+  
           setTopics(Array.from(uniqueTopics));
         } catch (error) {
           console.error('Error fetching topics:', error);
         }
       }
     };
-
+  
     fetchTopics();
   }, [formData.batch, formData.subject]);
 
