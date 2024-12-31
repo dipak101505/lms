@@ -77,6 +77,29 @@ function InvoiceForm({ students }) {
 
   const handleReceiptClick = (receipt) => {
     // Create a new URL with student data as query parameters
+    const subject =[];
+
+    let paymentMode = '';
+
+    if(receipt.subjects["maths"]){
+      subject.push('Mathematics');
+    }
+    if(receipt.subjects["physics"]){
+      subject.push('Physics');
+    }
+    if(receipt.subjects["chemistry"]){
+      subject.push('Chemistry');
+    }
+    if(receipt.subjects["biology"]){
+      subject.push('Biology');
+    }
+    if(receipt.subjects["AI"]){
+      subject.push('AI');
+    }
+    if(receipt.subjects["Robotics"]){
+      subject.push('Robotics');
+    }
+
     const params = new URLSearchParams({
       studentData: JSON.stringify({
         id: receipt.studentId,
@@ -86,6 +109,9 @@ function InvoiceForm({ students }) {
         admissionFee: receipt.admissionFee,
         monthlyInstallment: receipt.tuitionFee,
         month: receipt.month,
+        subjects: subject,
+        paymentMode: (receipt.paymentMode),
+        chequeNo: receipt.chequeNo,
         save: false
       })
     });

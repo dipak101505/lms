@@ -8,7 +8,6 @@ import { useAuth } from '../contexts/AuthContext';
 
 const ZenithForm = ({ studentData, onClose }) => {
   const { user } = useAuth();
-  console.log(studentData);
 
   const today = new Date().toISOString().split('T')[0];
   const currentMonth = new Date().toISOString().slice(0, 7);
@@ -25,11 +24,11 @@ const ZenithForm = ({ studentData, onClose }) => {
     month: currentMonth,
     admissionFee: '',
     tuitionFee: studentData?.monthlyInstallment || 0,
-    chequeNo: '',
+    chequeNo: studentData?.chequeNo || '',
     paymentMode: {
-      cash: false,
-      cheque: false,
-      online: false,
+      cash: studentData?.paymentMode?.cash || false,
+      cheque: studentData?.paymentMode?.cheque || false,
+      online: studentData?.paymentMode?.online || false,
     },
     subjects: {
       maths: studentData?.subjects?.includes('Mathematics') || false,
@@ -83,7 +82,6 @@ const ZenithForm = ({ studentData, onClose }) => {
       };
 
       const docRef = await addDoc(collection(db, "receipts"), receiptData);
-      console.log("Receipt saved with ID:", docRef.id);
       return docRef.id;
 
     } catch (error) {
@@ -259,7 +257,7 @@ const ZenithForm = ({ studentData, onClose }) => {
       // maxWidth: '800px',
       margin: '0 auto',
       backgroundColor: 'white',
-      padding: '2rem',
+      padding: '0rem',
       boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
       borderRadius: '8px',
       fontSize: '26px'
@@ -392,7 +390,20 @@ const ZenithForm = ({ studentData, onClose }) => {
       alignItems: 'center',
       gap: '0.5rem',
       padding: '0.75rem 1.5rem',
-      backgroundColor: '#2563eb',
+      backgroundColor: 'orange',
+      color: 'white',
+      border: 'none',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      fontWeight: '500',
+      fontSize: '26px'
+    },
+    cancelButton: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '0.5rem',
+      padding: 'auto',
+      backgroundColor: 'orange',
       color: 'white',
       border: 'none',
       borderRadius: '4px',
@@ -438,6 +449,8 @@ const ZenithForm = ({ studentData, onClose }) => {
               type="number"
               style={styles.input}
               value={formData.registrationNo}
+              // disable if studentData.save is false
+              disabled={studentData?.save===false}
               onChange={(e) => setFormData({
                 ...formData,
                 registrationNo: parseInt(e.target.value) || 0
@@ -448,6 +461,7 @@ const ZenithForm = ({ studentData, onClose }) => {
             <label style={styles.label}>Date:</label>
             <input
               type="date"
+              disabled={studentData?.save===false}
               style={styles.input}
               value={formData.date}
               onChange={(e) => setFormData({...formData, date: e.target.value})}
@@ -460,6 +474,7 @@ const ZenithForm = ({ studentData, onClose }) => {
           <input
             style={{...styles.input, width: '80%'}}
             value={formData.name}
+            disabled={studentData?.save===false}
             onChange={(e) => setFormData({...formData, name: e.target.value})}
           />
         </div>
@@ -469,6 +484,7 @@ const ZenithForm = ({ studentData, onClose }) => {
             <label key={subject} style={styles.checkboxLabel}>
               <input
                 type="checkbox"
+                disabled={studentData?.save===false}
                 style={styles.checkbox}
                 checked={checked}
                 onChange={() => handleSubjectChange(subject)}
@@ -482,6 +498,7 @@ const ZenithForm = ({ studentData, onClose }) => {
           <label style={styles.label}>Month:</label>
           <input
             type="month"
+            disabled={studentData?.save===false}
             style={{...styles.input, width: '80%'}}
             value={formData.month}
             onChange={(e) => setFormData({...formData, month: e.target.value})}
@@ -494,6 +511,7 @@ const ZenithForm = ({ studentData, onClose }) => {
           <div style={styles.feeRow}>
             <span>1. Admission Fee</span>
             <input
+              disabled={studentData?.save===false}
               style={{...styles.input, textAlign: 'right'}}
               value={formData.admissionFee}
               onChange={(e) => handleNumericInput(e, 'admissionFee')}
@@ -503,6 +521,7 @@ const ZenithForm = ({ studentData, onClose }) => {
           <div style={styles.feeRow}>
             <span>2. Tuition Fee</span>
             <input
+              disabled={studentData?.save===false}
               style={{...styles.input, textAlign: 'right'}}
               value={formData.tuitionFee}
               onChange={(e) => handleNumericInput(e, 'tuitionFee')}
@@ -530,6 +549,7 @@ const ZenithForm = ({ studentData, onClose }) => {
               <label style={styles.checkboxLabel}>
                 <input
                   type="checkbox"
+                  disabled={studentData?.save===false}
                   style={styles.checkbox}
                   checked={formData.paymentMode.cash}
                   onChange={() => handlePaymentModeChange('cash')}
@@ -539,6 +559,7 @@ const ZenithForm = ({ studentData, onClose }) => {
               <label style={styles.checkboxLabel}>
                 <input
                   type="checkbox"
+                  disabled={studentData?.save===false}
                   style={styles.checkbox}
                   checked={formData.paymentMode.cheque}
                   onChange={() => handlePaymentModeChange('cheque')}
@@ -548,6 +569,7 @@ const ZenithForm = ({ studentData, onClose }) => {
               <label style={styles.checkboxLabel}>
                 <input
                   type="checkbox"
+                  disabled={studentData?.save===false}
                   style={styles.checkbox}
                   checked={formData.paymentMode.online}
                   onChange={() => handlePaymentModeChange('online')}
@@ -559,6 +581,7 @@ const ZenithForm = ({ studentData, onClose }) => {
               <div style={styles.chequeInput}>
                 <label style={styles.label}>Cheque No:</label>
                 <input
+                  disabled={studentData?.save===false}
                   style={styles.input}
                   value={formData.chequeNo}
                   onChange={(e) => setFormData({...formData, chequeNo: e.target.value})}
@@ -580,7 +603,7 @@ const ZenithForm = ({ studentData, onClose }) => {
     <div>
       <div >
         {renderForm(true)}
-        <div style={{marginTop: '6rem'}}>
+        <div style={{marginTop: '1rem'}}>
           {renderForm(false)}
           </div>
        </div>

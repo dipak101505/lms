@@ -625,7 +625,7 @@ function SignupPage() {
         overflow: 'hidden'
       }}>
         <img 
-          src="login.jpg" 
+          src="https://firebasestorage.googleapis.com/v0/b/cloud-profiler-demo-399610.appspot.com/o/login.jpg?alt=media&token=5a74c845-a1e2-4586-bf76-1770393638e9" 
           alt="Login" 
           style={{
             maxWidth: '80%',
