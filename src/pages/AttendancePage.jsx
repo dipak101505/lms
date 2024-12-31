@@ -4,29 +4,35 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebase/config';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { faCamera } from '@fortawesome/free-solid-svg-icons';
 
 function AttendancePage() {
   const { user } = useAuth();
   const [students, setStudents] = useState([]);
   const [batches, setBatches] = useState([]);
   const [subjects, setSubjects] = useState([]);
+  const [centres, setCentres] = useState([]); // State for centres
   const [selectedBatch, setSelectedBatch] = useState('');
   const [selectedSubject, setSelectedSubject] = useState('');
+  const [selectedCentre, setSelectedCentre] = useState(''); // State for selected centre
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [attendanceList, setAttendanceList] = useState([]);
   const [loading, setLoading] = useState(true);
   const videoRef = useRef(null);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [capturedPhotos, setCapturedPhotos] = useState({});
+  const [nameFilter, setNameFilter] = useState(''); // State for name filter
 
   // Fetch initial data
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [batchesSnap, studentsSnap, subjectsSnap] = await Promise.all([
+        const [batchesSnap, studentsSnap, subjectsSnap, centresSnap] = await Promise.all([
           getDocs(collection(db, 'batches')),
           getDocs(collection(db, 'students')),
-          getDocs(collection(db, 'subjects'))
+          getDocs(collection(db, 'subjects')),
+          getDocs(collection(db, 'centres')) // Fetch centres
         ]);
         
         setBatches(batchesSnap.docs.map(doc => ({
@@ -41,12 +47,17 @@ function AttendancePage() {
           id: doc.id,
           ...doc.data()
         })));
+        setCentres(centresSnap.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }))); // Set centres
         setLoading(false);
       } catch (error) {
         console.error('Error fetching data:', error);
         setLoading(false);
       }
     };
+
     fetchData();
   }, []);
 
@@ -127,11 +138,16 @@ function AttendancePage() {
       const attendanceData = {
         batch: selectedBatch,
         subject: selectedSubject,
+        centre: selectedCentre,
         date: Timestamp.fromDate(new Date(selectedDate)),
-        presentStudents: attendanceList.map(studentId => ({
-          studentId,
-          photoUrl: capturedPhotos?.[studentId] || ''
-        })),
+        presentStudents: attendanceList.map(studentId => {
+          const student = students.find(student => student.id === studentId);
+          return {
+            name: student?.name || '',
+            studentId,
+            photoUrl: capturedPhotos?.[studentId] || ''
+          };
+        }),
         createdAt: Timestamp.now(),
         createdBy: user.email,
         capturedPhotos: capturedPhotos || [],
@@ -146,6 +162,12 @@ function AttendancePage() {
       alert('Error submitting attendance');
     }
   };
+  console.log(students);
+  // Filter students based on name and centre
+  const filteredStudents = students.filter(student => 
+    student.name.toLowerCase().includes(nameFilter.toLowerCase()) &&
+    (selectedCentre ? student.centres.includes(selectedCentre) : true)
+  );
 
   if (loading) return <div>Loading...</div>;
 
@@ -193,6 +215,25 @@ function AttendancePage() {
           ))}
         </select>
 
+        <select 
+          value={selectedCentre} 
+          onChange={(e) => setSelectedCentre(e.target.value)}
+          style={{
+            padding: '8px 12px',
+            borderRadius: '4px',
+            border: '1px solid #ddd',
+            flex: 1,
+            fontSize: '16px'
+          }}
+        >
+          <option value="">Select Centres</option>
+          {centres.map(centre => (
+            <option key={centre.id} value={centre.name}>
+              {centre.name}
+            </option>
+          ))}
+        </select>
+
         <input
           type="date"
           value={selectedDate}
@@ -205,6 +246,17 @@ function AttendancePage() {
             fontSize: '16px'
           }}
         />
+      </div>
+
+      <div>
+        <label>
+          Name :
+          <input 
+            type="text" 
+            value={nameFilter} 
+            onChange={(e) => setNameFilter(e.target.value)} 
+          />
+        </label>
       </div>
 
       {selectedBatch && selectedSubject && (
@@ -227,7 +279,7 @@ function AttendancePage() {
             gap: '16px',
             marginBottom: '24px'
           }}>
-            {students
+            {filteredStudents
               .filter(student => 
                 student.batch === selectedBatch && 
                 student.status === 'active' &&
@@ -239,7 +291,8 @@ function AttendancePage() {
                   borderRadius: '8px',
                   border: '1px solid #ddd',
                   display: 'flex',
-                  alignItems: 'center',
+                  alignItems: 'end',
+                  justifyContent: 'space-between',
                   gap: '12px',
                   backgroundColor: attendanceList.includes(student.id) ? '#f0fff4' : 'white'
                 }}>
@@ -265,26 +318,13 @@ function AttendancePage() {
                       }} 
                     />
                   ) : (
-                    <button
-                      onClick={() => isCameraActive ? capturePhoto(student) : startCamera(student.id)}
-                      style={{
-                        padding: '8px 16px',
-                        backgroundColor: '#3b82f6',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        marginLeft: 'auto'
-                      }}
-                    >
-                      {isCameraActive ? 'Capture' : 'Take Photo'}
-                    </button>
+                      <FontAwesomeIcon icon={faCamera} onClick={() => isCameraActive ? capturePhoto(student) : startCamera(student.id)} />
                   )}
                 </div>
               ))}
           </div>
 
-          {students.filter(student => 
+          {filteredStudents.filter(student => 
             student.batch === selectedBatch && 
             student.status === 'active' &&
             student.subjects?.includes(selectedSubject)
@@ -301,7 +341,7 @@ function AttendancePage() {
             </div>
           )}
 
-          {students.filter(student => 
+          {filteredStudents.filter(student => 
             student.batch === selectedBatch && 
             student.status === 'active' &&
             student.subjects?.includes(selectedSubject)
