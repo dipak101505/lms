@@ -152,7 +152,6 @@ function AttendancePage() {
         createdBy: user.email,
         capturedPhotos: capturedPhotos || [],
       };
-      console.log(attendanceData);
       await addDoc(collection(db, 'attendance'), attendanceData);
       alert('Attendance submitted successfully!');
       setAttendanceList([]);
@@ -162,7 +161,6 @@ function AttendancePage() {
       alert('Error submitting attendance');
     }
   };
-  console.log(students);
   // Filter students based on name and centre
   const filteredStudents = students.filter(student => 
     student.name.toLowerCase().includes(nameFilter.toLowerCase()) &&
@@ -285,6 +283,7 @@ function AttendancePage() {
                 student.status === 'active' &&
                 student.subjects?.includes(selectedSubject)
               )
+              .sort((a, b) => a.name.localeCompare(b.name))
               .map(student => (
                 <div key={student.id} style={{
                   padding: '16px',
