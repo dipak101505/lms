@@ -82,6 +82,7 @@ function UploadPage() {
           data.items.forEach(item => {
             const parts = item.title.split('_');
             if (parts.length >= 3) {
+              if(parts[0] === formData.batch && parts[1] === formData.subject)
               uniqueTopics.add(parts[2]);
             }
           });
