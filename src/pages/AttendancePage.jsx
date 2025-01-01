@@ -8,7 +8,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCamera } from '@fortawesome/free-solid-svg-icons';
 
 function AttendancePage() {
-  const { user } = useAuth();
+  const { user, isFranchise } = useAuth();
   const [students, setStudents] = useState([]);
   const [batches, setBatches] = useState([]);
   const [subjects, setSubjects] = useState([]);
@@ -23,6 +23,10 @@ function AttendancePage() {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [capturedPhotos, setCapturedPhotos] = useState({});
   const [nameFilter, setNameFilter] = useState(''); // State for name filter
+
+  const capitalizeFirstLetter = (string) => {
+    return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
+  };
 
   // Fetch initial data
   useEffect(() => {
@@ -51,6 +55,8 @@ function AttendancePage() {
           id: doc.id,
           ...doc.data()
         }))); // Set centres
+        if(isFranchise)
+          setSelectedCentre(capitalizeFirstLetter(user.email.split('@')[0]));
         setLoading(false);
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -223,6 +229,7 @@ function AttendancePage() {
             flex: 1,
             fontSize: '16px'
           }}
+          disabled={isFranchise}
         >
           <option value="">Select Centres</option>
           {centres.map(centre => (

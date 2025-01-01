@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { collection, addDoc, getDocs, query, orderBy, limit } from 'firebase/firestore';
 import { db } from '../firebase/config';
+import { useAuth } from '../contexts/AuthContext';
 
 function InvoiceForm({ students }) {
   const [formData, setFormData] = useState({
@@ -14,13 +15,14 @@ function InvoiceForm({ students }) {
   const [loading, setLoading] = useState(true);
   const [selectedLoginId, setSelectedLoginId] = useState(''); // State for selected loginId
   const [loginIds, setLoginIds] = useState([]); // State for available loginIds
-
+  const { user, isFranchise} = useAuth();
+  
   // Fetch receipts
   useEffect(() => {
     const fetchReceipts = async () => {
       try {
         const receiptsRef = collection(db, 'receipts');
-        const q = query(receiptsRef, orderBy('createdAt', 'desc'), limit(1000));
+        const q = query(receiptsRef, orderBy('createdAt', 'desc'), limit(100));
         const querySnapshot = await getDocs(q);
         const receiptsList = querySnapshot.docs.map(doc => ({
           id: doc.id,
@@ -35,7 +37,8 @@ function InvoiceForm({ students }) {
         uniqueLoginIds = uniqueLoginIds.map(loginId => loginId.split('@')[0]);
         console.log(uniqueLoginIds);
         setLoginIds(uniqueLoginIds);
-
+        if(isFranchise)
+          setSelectedLoginId((user.email.split('@')[0]));
         setLoading(false);
       } catch (error) {
         console.error('Error fetching receipts:', error);
@@ -149,7 +152,9 @@ function InvoiceForm({ students }) {
                 borderRadius: '8px',
                 border: '1px solid #ddd',
                 width: '150px'
-              }}>
+              }}
+              disabled={isFranchise}
+              >
           <option value="">All Center</option>
           {loginIds.map(loginId => (
             <option key={loginId} value={loginId}>{loginId}</option>

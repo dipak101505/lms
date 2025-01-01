@@ -8,6 +8,7 @@ import CentreForm from '../components/CentreForm';
 import EditStudentForm from '../components/EditStudentForm';
 import ZenithForm from '../components/ZenithForm';
 import InvoiceForm from '../components/InvoiceForm';
+import { useAuth } from '../contexts/AuthContext';
 
 function StudentManagementPage() {
   const [activeTab, setActiveTab] = useState('students');
@@ -23,7 +24,12 @@ function StudentManagementPage() {
   const [selectedCentre, setSelectedCentre] = useState('');
   const [showZenithForm, setShowZenithForm] = useState(false);
   const [selectedStudentForForm, setSelectedStudentForForm] = useState(null);
+  const { user, isFranchise} = useAuth();
 
+  const capitalizeFirstLetter = (string) => {
+    return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
+  };
+  
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -38,7 +44,9 @@ function StudentManagementPage() {
         setSubjects(subjectsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         setCentres(centresSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
         setStudents(studentsSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-        setLoading(false);
+        if(isFranchise)
+          setSelectedCentre(capitalizeFirstLetter(user.email.split('@')[0]));
+          setLoading(false);
       } catch (error) {
         console.error('Error fetching data:', error);
         setLoading(false);
@@ -220,6 +228,8 @@ function StudentManagementPage() {
     );
   }
 
+  const tabs = isFranchise ? ['students', 'invoice'] : ['students', 'batches', 'subjects', 'centres', 'invoice'];
+
   return (
     <div style={{ 
       padding: '24px',
@@ -255,7 +265,7 @@ function StudentManagementPage() {
         borderRadius: '12px',
         boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
       }}>
-        {['students', 'batches', 'subjects', 'centres', 'invoice'].map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab}
             onClick={() => setActiveTab(tab)}
@@ -328,6 +338,7 @@ function StudentManagementPage() {
                 border: '1px solid #ddd',
                 width: '150px'
               }}
+              disabled={isFranchise}
             >
               <option value="">All Centres</option>
               {centres.map(centre => (

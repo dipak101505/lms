@@ -13,6 +13,7 @@ import Navbar from './components/Navbar';
 import PrivateRoute from './components/PrivateRoute';
 import './styles/auth.css';
 import AdminRoute from './components/AdminRoute';
+import AdminFranchiseRoute from './components/AdminFranchiseRoute';
 import SignupPage from './pages/SignupPage';
 import AttendancePage from './pages/AttendancePage';
 import ReceiptPage from './pages/ReceiptPage';
@@ -85,19 +86,19 @@ function App() {
               </PrivateRoute>
             } />
             <Route path="/receipt" element={
-              <PrivateRoute>
+              <AdminFranchiseRoute>
                 <ReceiptPage />
-              </PrivateRoute>
+              </AdminFranchiseRoute>
             } />
             <Route path="/students" element={
-              <AdminRoute>
+              <AdminFranchiseRoute>
                 <StudentManagementPage />
-              </AdminRoute>
+              </AdminFranchiseRoute>
             } />
             <Route path="/attendance" element={
-              <AdminRoute>
+              <AdminFranchiseRoute>
                 <AttendancePage />
-              </AdminRoute>
+              </AdminFranchiseRoute>
             } />
             <Route path="/edit-exam" element={
               <AdminRoute>

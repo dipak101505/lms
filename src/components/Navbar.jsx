@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useState } from 'react';
 
 function Navbar() {
-  const { user, isAdmin, logout } = useAuth();
+  const { user, isAdmin, logout, isFranchise } = useAuth();
   const navigate = useNavigate();
   const [isHovered, setIsHovered] = useState('');
 
@@ -64,7 +64,7 @@ function Navbar() {
               display: 'flex',
               gap: '24px'
             }}>
-              <Link
+              {!isFranchise && <Link
                 to="/meetings"
                 style={{
                   color: isHovered === 'meetings' || window.location.pathname.includes("meetings") ? '#ffa600' : '#4a5568',
@@ -79,8 +79,8 @@ function Navbar() {
                 onMouseLeave={() => setIsHovered('')}
               >
                 Live Class
-              </Link>
-              <Link
+              </Link>}
+              {!isFranchise && <Link
                 to="/videos"
                 style={{
                   color: isHovered === 'videos' || window.location.pathname.includes("videos") ? '#ffa600' : '#4a5568',
@@ -95,7 +95,7 @@ function Navbar() {
                 onMouseLeave={() => setIsHovered('')}
               >
                 Videos
-              </Link>
+              </Link>}
               {isAdmin && (
                 <>
                   <Link
@@ -114,6 +114,42 @@ function Navbar() {
                   >
                     Upload
                   </Link>
+                  <Link
+                    to="/students"
+                    style={{
+                      color: isHovered === 'students' || window.location.pathname.includes("students") ? '#ffa600' : '#4a5568',
+                      textDecoration: 'none',
+                      fontSize: '15px',
+                      fontWeight: '500',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={() => setIsHovered('students')}
+                    onMouseLeave={() => setIsHovered('')}
+                  >
+                    Management
+                  </Link>
+                  <Link
+                    to="/attendance"
+                    style={{
+                      color: isHovered === 'attendance' || window.location.pathname.includes("attendance") ? '#ffa600' : '#4a5568',
+                      textDecoration: 'none',
+                      fontSize: '15px',
+                      fontWeight: '500',
+                      padding: '8px 12px',
+                      borderRadius: '6px',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={() => setIsHovered('attendance')}
+                    onMouseLeave={() => setIsHovered('')}
+                  >
+                    Attendance
+                  </Link>
+                </>
+              )}
+              {isFranchise && (
+                <>
                   <Link
                     to="/students"
                     style={{

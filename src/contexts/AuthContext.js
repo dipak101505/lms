@@ -26,6 +26,7 @@ export function AuthProvider({ children }) {
   const [sessionTimeout, setSessionTimeout] = useState(null);
 
   const isAdmin = user?.email?.endsWith('@zenithadmin.com') || false;
+  const isFranchise = user?.email?.endsWith('@zenith.edu') || false;
 
   const startSessionTimer = () => {
     // Clear any existing timeout
@@ -70,7 +71,7 @@ export function AuthProvider({ children }) {
   function login(email, password) {
     return signInWithEmailAndPassword(auth, email, password)
       .then(async (result) => {
-        if (!result.user.emailVerified && !email.endsWith('@zenithadmin.com')) {
+        if (!result.user.emailVerified && !(email.endsWith('@zenithadmin.com') || email.endsWith('@zenith.edu'))) {          
           await signOut(auth);
           throw new Error('Please verify your email before logging in');
         }
@@ -119,6 +120,7 @@ export function AuthProvider({ children }) {
   const value = {
     user,
     isAdmin,
+    isFranchise,
     signup,
     createUser,
     login,
