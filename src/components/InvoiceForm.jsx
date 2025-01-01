@@ -12,19 +12,30 @@ function InvoiceForm({ students }) {
   });
   const [receipts, setReceipts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedLoginId, setSelectedLoginId] = useState(''); // State for selected loginId
+  const [loginIds, setLoginIds] = useState([]); // State for available loginIds
 
   // Fetch receipts
   useEffect(() => {
     const fetchReceipts = async () => {
       try {
         const receiptsRef = collection(db, 'receipts');
-        const q = query(receiptsRef, orderBy('createdAt', 'desc'), limit(10));
+        const q = query(receiptsRef, orderBy('createdAt', 'desc'), limit(1000));
         const querySnapshot = await getDocs(q);
         const receiptsList = querySnapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
         }));
         setReceipts(receiptsList);
+
+        // Extract unique loginIds from receipts
+        let uniqueLoginIds = [...new Set(receiptsList.map(receipt => receipt.loginId))];
+        console.log(uniqueLoginIds);
+        //filter out email domain
+        uniqueLoginIds = uniqueLoginIds.map(loginId => loginId.split('@')[0]);
+        console.log(uniqueLoginIds);
+        setLoginIds(uniqueLoginIds);
+
         setLoading(false);
       } catch (error) {
         console.error('Error fetching receipts:', error);
@@ -120,8 +131,31 @@ function InvoiceForm({ students }) {
     window.open(`/receipt?${params.toString()}`, '_blank');
   };
 
+  const handleLoginIdChange = (event) => {
+    setSelectedLoginId(event.target.value);
+  };
+
+  const filteredReceipts = selectedLoginId
+    ? receipts.filter(receipt => receipt.loginId.includes(selectedLoginId))
+    : receipts;
+
   return (
     <div>
+      {/* Dropdown filter for loginId */}
+      <div style={{ marginBottom: '20px' }}>
+        <label htmlFor="loginIdFilter" style={{ marginRight: '10px' }}>Centre</label>
+        <select id="loginIdFilter" value={selectedLoginId} onChange={handleLoginIdChange} style={{
+                padding: '10px',
+                borderRadius: '8px',
+                border: '1px solid #ddd',
+                width: '150px'
+              }}>
+          <option value="">All Center</option>
+          {loginIds.map(loginId => (
+            <option key={loginId} value={loginId}>{loginId}</option>
+          ))}
+        </select>
+      </div>
 
       {/* Receipts List */}
       <div style={{ marginTop: '40px' }}>
@@ -131,7 +165,7 @@ function InvoiceForm({ students }) {
           <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
             Loading receipts...
           </div>
-        ) : receipts.length === 0 ? (
+        ) : filteredReceipts.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>
             No receipts found
           </div>
@@ -155,7 +189,7 @@ function InvoiceForm({ students }) {
                 </tr>
               </thead>
               <tbody>
-                {receipts.map((receipt) => (
+                {filteredReceipts.map((receipt) => (
                   <tr key={receipt.id} style={{ 
                     borderBottom: '1px solid #e2e8f0',
                     '&:hover': { backgroundColor: '#f8fafc' }

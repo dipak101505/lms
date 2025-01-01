@@ -8,7 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 
 const ZenithForm = ({ studentData, onClose }) => {
   const { user } = useAuth();
-
+  
   const today = new Date().toISOString().split('T')[0];
   const currentMonth = new Date().toISOString().slice(0, 7);
 
@@ -72,7 +72,7 @@ const ZenithForm = ({ studentData, onClose }) => {
     try {
       const receiptData = {
         ...formData,
-        loginId: user.uid,
+        loginId: user.email,
         timestamp: new Date(),
         total: calculateTotal(),
         registrationNo: formData.registrationNo,
