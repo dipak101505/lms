@@ -7,9 +7,10 @@ import { AiFillFilePdf } from 'react-icons/ai';
 import { BsFillPlayCircleFill } from 'react-icons/bs';
 import { ref, uploadBytes, getDownloadURL, listAll, getMetadata, deleteObject } from 'firebase/storage';
 import { storage } from '../firebase/config';
+import { useNavigate } from 'react-router-dom';
 
 function VideoListPage() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isFranchise } = useAuth();
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -21,6 +22,15 @@ function VideoListPage() {
   const [students, setStudents] = useState([]);
   const [selectedBatch, setSelectedBatch] = useState('');
   const [selectedStudentEmail, setSelectedStudentEmail] = useState('');
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user && isFranchise) {
+      navigate('/students');
+    }
+  }, [user, isFranchise, navigate]);
+
 
   // Fetch batches on mount
   useEffect(() => {
