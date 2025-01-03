@@ -4,6 +4,7 @@ import { db } from '../firebase/config';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebase/config';
 import { getAuth } from 'firebase/auth';
+import { useAuth } from '../contexts/AuthContext';
 
 const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centres }) => {
   const [formData, setFormData] = useState({
@@ -29,6 +30,7 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState(student.imageUrl);
   const [isUploading, setIsUploading] = useState(false);
+  const { isFranchise} = useAuth();
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -533,6 +535,7 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
               onChange={handleInputChange}
               min="0"
               style={{ width: '100%', padding: '8px' }}
+              disabled={isFranchise && student.amountPending > 0}
             />
           </div>
 

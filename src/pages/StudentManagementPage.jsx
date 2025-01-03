@@ -78,7 +78,7 @@ function StudentManagementPage() {
   const filteredStudents = students.filter(student => {
     const matchesName = student.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesBatch = selectedBatch ? student.batch === selectedBatch : true;
-    const matchesCentre = selectedCentre ? student.centres.includes(selectedCentre) : true;
+    const matchesCentre = selectedCentre ? student.centres.map(centre => centre.replace(/\s+/g, '')).includes(selectedCentre) : true;
     return matchesName && matchesBatch && matchesCentre;
   });
 
