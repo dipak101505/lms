@@ -9,6 +9,73 @@ import { ref, uploadBytes, getDownloadURL, listAll, getMetadata, deleteObject } 
 import { storage } from '../firebase/config';
 import { useNavigate } from 'react-router-dom';
 
+
+// Add this CSS animation
+const styles = `
+  @keyframes spin {
+    0% { 
+      transform: rotate(0deg);
+      border-top-color:rgb(219, 135, 52);
+    }
+    25% {
+      border-top-color:rgb(209, 95, 30);
+    }
+    50% {
+      border-top-color: #f1c40f;
+    }
+    75% {
+      border-top-color: #e74c3c;
+    }
+    100% { 
+      transform: rotate(360deg);
+      border-top-color:rgb(238, 224, 24);
+    }
+  }
+
+  @keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+  }
+
+  .spinner {
+    position: relative;
+    width: 50px;
+    height: 50px;
+  }
+
+  .spinner::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 3px solid rgba(0, 0, 0, 0.1);
+    border-top: 3px solid #3498db;
+    animation: spin 1.5s ease-in-out infinite;
+  }
+
+  .spinner::after {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    right: -8px;
+    bottom: -8px;
+    border-radius: 50%;
+    border: 3px solid transparent;
+    border-top: 3px solid rgba(52, 152, 219, 0.2);
+    animation: spin 2s linear infinite;
+  }
+`;
+
+// Insert animation styles
+const styleSheet = document.createElement("style");
+styleSheet.innerText = styles;
+document.head.appendChild(styleSheet);
+
 function VideoListPage() {
   const { user, isAdmin, isFranchise } = useAuth();
   const [videos, setVideos] = useState([]);
@@ -510,7 +577,41 @@ function VideoListPage() {
   };
 
   if (loading) {
-    return <div>Loading videos...</div>;
+    return (
+      <div style={{
+        height: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: '20px',
+        background: '#f8f9fa'
+      }}>
+        <div style={{
+          textAlign: 'center'
+        }}>
+          <div 
+            className="spinner"
+            style={{
+              width: '40px',
+              height: '40px',
+              margin: '20px auto',
+              borderRadius: '50%',
+              border: '3px solid #f3f3f3',
+              borderTop: '3px solid #3498db',
+              animation: 'spin 1s linear infinite'
+            }}
+          />
+          <p style={{
+            color: '#666',
+            marginTop: '15px'
+          }}>
+            Loading videos... Please wait<br/>
+            If this takes too long, please contact your administrator.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   if (error) {
