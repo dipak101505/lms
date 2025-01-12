@@ -58,8 +58,19 @@ const VideoPlayer = () => {
           'x-playsinline': 'true'
         },
         customType: {
-          m3u8: playM3u8
-        }
+          m3u8: function(video, url) {
+              if (Hls.isSupported()) {
+                  const hls = new Hls({
+                      maxBufferSize: 0,
+                      maxBufferLength: 5, // 1 minute in seconds
+                      maxMaxBufferLength: 10, // 2 minutes in seconds
+                      liveDurationInfinity: false
+                  });
+                  hls.loadSource(url);
+                  hls.attachMedia(video);
+              }
+          }
+      }
     });
 
     return () => {
