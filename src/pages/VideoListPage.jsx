@@ -124,6 +124,7 @@ function VideoListPage() {
         email: doc.data().email,
         name: doc.data().name
       }));
+      studentsList.sort((a, b) => a.name.localeCompare(b.name));
       setStudents(studentsList);
     };
     fetchStudents();
