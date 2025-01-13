@@ -448,7 +448,7 @@ function VideoListPage() {
   const ra = (file) => {
     const twoWeeksInMilliseconds = 14 * 24 * 60 * 60 * 1000;
     const fileAge = Date.now() - new Date(file.lastModified).getTime();
-    if(accessibleFiles.has(file.name))
+    if(accessibleFiles.has(file.name) || file.name.includes("Paramatric Form"))
       return false; // File is accessible
 
     if (fileAge < twoWeeksInMilliseconds) {
@@ -524,7 +524,7 @@ function VideoListPage() {
             onClick={async (e) => {
               e.preventDefault();
               if (requiresAccess) {
-                alert('This video is only accessible for 2 weeks after upload. To access it now, please contact your A.Pandit .');
+                alert('This video is only accessible for 2 weeks after upload. To access it now, please contact A.Pandit .');
                 return;
               }
               const canView = await checkVideoViewLimit(file.name, user.email);
@@ -891,6 +891,25 @@ function VideoListPage() {
       >
         {isSaving ? 'Saving...' : 'Save Changes'}
       </button>}
+      {/* <iframe 
+        src="https://calendar.google.com/calendar/embed?height=600&wkst=1&ctz=Asia%2FKolkata&showPrint=0&src=ZGlwYWthZ2Fyd2FsMTAxNTA1QGdtYWlsLmNvbQ&color=%237986CB"
+        title="Google Calendar"
+        style={{
+          border: 'solid 1px #777',
+          width: '100%',
+          maxWidth: '800px',
+          height: '600px',
+        }}
+        frameBorder="0"
+        scrolling="no"
+        allowFullScreen
+        sandbox="allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox"
+        loading="lazy"
+        onError={(e) => {
+          console.error('Calendar iframe failed to load:', e);
+          toast.error('Failed to load calendar');
+        }}
+      /> */}
     </div>
   );
 }
