@@ -8,6 +8,7 @@ import { BsFillPlayCircleFill } from 'react-icons/bs';
 import { ref, uploadBytes, getDownloadURL, listAll, getMetadata, deleteObject } from 'firebase/storage';
 import { storage } from '../firebase/config';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 
 // Add this CSS animation
@@ -140,6 +141,7 @@ function VideoListPage() {
         files: Array.from(accessibleFiles).join('|||'),
         updatedAt: Timestamp.now()
       });
+      toast.success('Access settings saved successfully!');
     } catch (error) {
       console.error('Error:', error);
     } finally {
@@ -298,7 +300,7 @@ function VideoListPage() {
 
       // Update UI
       setVideos(prevFiles => prevFiles.filter(f => f.name !== file.name));
-      alert('File deleted successfully');
+      toast.success('File deleted successfully');
     } catch (err) {
       console.error('Error deleting file:', err);
       alert('Failed to delete file: ' + err.message);

@@ -21,6 +21,8 @@ import PDFViewer from './components/PDFViewer';
 import ExamPage from './pages/ExamPage';
 import ExamInterfacePage from './pages/ExamInterfacePage';
 import EditExamPage from './pages/EditExamPage';
+import { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 
 // Create a wrapper component for Navbar
 function NavbarWrapper() {
@@ -37,6 +39,28 @@ function NavbarWrapper() {
 function App() {
   return (
     <AuthProvider>
+        <Toaster 
+        position="bottom-left"
+        toastOptions={{
+          duration: 5000,
+          style: {
+            background: '#333',
+            color: '#fff',
+            padding: '16px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          },
+          success: {
+            icon: '✅',
+          },
+          error: {
+            icon: '❌',
+          },
+          // Add close button to each toast
+          onClick: (t) => toast.dismiss(t.id)
+        }}
+      />
       <Router>
         <div className="App">
           <NavbarWrapper />
