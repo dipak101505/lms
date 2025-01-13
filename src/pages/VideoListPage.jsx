@@ -137,7 +137,7 @@ function VideoListPage() {
     setSaving(true);
     try {
       await setDoc(doc(db, 'VideoAccessGranted', selectedStudentEmail), {
-        files: Array.from(accessibleFiles).join(','),
+        files: Array.from(accessibleFiles).join('|||'),
         updatedAt: Timestamp.now()
       });
     } catch (error) {
@@ -428,7 +428,8 @@ function VideoListPage() {
       
       if (docSnap.exists()) {
         console.log('Selected student:', selectedStudentEmail);
-        const filesArray = docSnap.data().files?.split(',') || [];
+        const filesArray = docSnap.data().files?.split('|||') || [];
+        console.log('Files:', filesArray);
         setAccessibleFiles(new Set(filesArray));
       }
       else {
