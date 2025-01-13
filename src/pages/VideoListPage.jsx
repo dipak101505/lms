@@ -448,7 +448,7 @@ function VideoListPage() {
   const ra = (file) => {
     const twoWeeksInMilliseconds = 14 * 24 * 60 * 60 * 1000;
     const fileAge = Date.now() - new Date(file.lastModified).getTime();
-    if(accessibleFiles.has(file.name) || file.name.includes("Paramatric Form"))
+    if(accessibleFiles.has(file.name) || file.name.includes("Paramatric Form"))       //remove this line to make all files accessible
       return false; // File is accessible
 
     if (fileAge < twoWeeksInMilliseconds) {
