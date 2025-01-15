@@ -473,7 +473,8 @@ function VideoListPage() {
   const FileItem = ({ file, isAdmin, handleDelete, user }) => {
     const isPdf = file.type === 'pdf';
     const displayName = file.subtopic || 'untitled';
-    const requiresAccess = ra(file); 
+    // const requiresAccess = ra(file);
+    const requiresAccess = false; 
 
     const handlePdfClick = (e) => {
       e.preventDefault();
@@ -643,7 +644,7 @@ function VideoListPage() {
 
   return (
     <div style={{ padding: '20px' }}>
-      <div style={{
+      {isAdmin && <div style={{
         width: '100%',
         height: '800px',
         margin: '20px 0',
@@ -651,7 +652,7 @@ function VideoListPage() {
         borderRadius: '8px',
         overflow: 'hidden'
       }}>
-        {isAdmin && <iframe
+          <iframe
           src="https://app.vignamlabs.com/Zenith%20Institute/INST-5ccefcb8-1294-4adc-9975-a18b3c0b7c8d/teach1/all%20simulations/simulation/reactionmodelsimulation/SIM-9a23b45d-e5b6-4b6f-8547-12f1e3ab2568"
           width="100%"
           height="100%"
@@ -663,8 +664,8 @@ function VideoListPage() {
             e.target.style.display = 'none';
             e.target.parentElement.innerHTML = 'Failed to load simulation. Please check your internet connection or try again later.';
           }}
-        />}
-      </div>
+        />
+      </div>}
       <h1>Video Library</h1>
       {isAdmin && 
       <div className="flex flex-col md:flex-row gap-4 mb-6 p-4 bg-gray-50 rounded-lg shadow-sm">
