@@ -76,11 +76,15 @@ function StudentManagementPage() {
   };
 
   const filteredStudents = students.filter(student => {
+    const normalizedCentre = selectedCentre?.replace(/\s+/g, '');
     const matchesName = student.name.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesBatch = selectedBatch ? student.batch === selectedBatch : true;
-    const matchesCentre = selectedCentre ? student.centres.map(centre => centre.replace(/\s+/g, '')).includes(selectedCentre) : true;
+    const matchesCentre = selectedCentre ? student.centres.map(centre => centre.replace(/\s+/g, '')).includes(normalizedCentre) : true;
     return matchesName && matchesBatch && matchesCentre;
   });
+  console.log(selectedCentre);
+  console.log(students);
+
 
   const handleDelete = async (studentId) => {
     if (window.confirm('Are you sure you want to delete this student?')) {
