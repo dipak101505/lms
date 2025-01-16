@@ -121,6 +121,7 @@ function InvoiceForm({ students }) {
         email: receipt.studentEmail,
         registrationNo: receipt.registrationNo,
         admissionFee: receipt.admissionFee,
+        detail: receipt.detail,
         monthlyInstallment: receipt.tuitionFee,
         month: receipt.month,
         subjects: subject,

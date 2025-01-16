@@ -22,7 +22,8 @@ const ZenithForm = ({ studentData, onClose }) => {
     date: today,
     name: studentData?.name || '',
     month: currentMonth,
-    admissionFee: '',
+    admissionFee: studentData?.admissionFee || 0,
+    detail: studentData?.detail || '',
     tuitionFee: studentData?.monthlyInstallment || 0,
     chequeNo: studentData?.chequeNo || '',
     paymentMode: {
@@ -75,6 +76,7 @@ const ZenithForm = ({ studentData, onClose }) => {
         loginId: user.email,
         timestamp: new Date(),
         total: calculateTotal(),
+        detail: formData.detail,
         registrationNo: formData.registrationNo,
         createdAt: new Date().toISOString(),
         status: 'completed',
@@ -499,9 +501,17 @@ const ZenithForm = ({ studentData, onClose }) => {
           <input
             type="month"
             disabled={studentData?.save===false}
-            style={{...styles.input, width: '80%'}}
+            style={{...styles.input, width: '40%'}}
             value={formData.month}
             onChange={(e) => setFormData({...formData, month: e.target.value})}
+          />
+          <input
+            type="text"
+            style={{...styles.input, width: '40%'}}
+            value={formData.detail || ''}
+            onChange={(e) => setFormData({...formData, detail: e.target.value})}
+            disabled={studentData?.save === false}
+            placeholder="Enter payment details"
           />
         </div>
 
