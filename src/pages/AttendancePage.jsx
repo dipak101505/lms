@@ -170,7 +170,7 @@ function AttendancePage() {
   // Filter students based on name and centre
   const filteredStudents = students.filter(student => 
     student.name.toLowerCase().includes(nameFilter.toLowerCase()) &&
-    (selectedCentre ? student.centres.includes(selectedCentre) : true)
+    (selectedCentre ? student.centres?.map(centre => centre.replace(/\s+/g, '')).includes(selectedCentre) : true)
   );
 
   if (loading) return <div>Loading...</div>;
