@@ -7,10 +7,18 @@ import { getAuth } from 'firebase/auth';
 import { useAuth } from '../contexts/AuthContext';
 
 const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centres }) => {
+
+  
+  const formatBatchValue = (batchValue) => {
+    if (!batchValue) return [];
+    if (Array.isArray(batchValue)) return batchValue;
+    return [batchValue];
+  };
+  
   const [formData, setFormData] = useState({
     name: student.name,
     email: student.email,
-    batch: student.batch,
+    batch: formatBatchValue(student.batch),
     centres: student.centres || [],
     subjects: student.subjects || [],
     enrollmentDate: student.enrollmentDate,
@@ -31,6 +39,7 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
   const [imagePreview, setImagePreview] = useState(student.imageUrl);
   const [isUploading, setIsUploading] = useState(false);
   const { isFranchise} = useAuth();
+
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -55,6 +64,14 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
     setFormData(prev => ({
       ...prev,
       centres: selectedOptions
+    }));
+  };
+
+  const handleBatchesChange = (e) => {
+    const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
+    setFormData(prev => ({
+      ...prev,
+      batch: selectedOptions
     }));
   };
 
@@ -105,14 +122,15 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
         );
 
         // Draw batch
+        const batches = formData.batch.join(', ') || 'No Batch';
         ctx.fillText(
-          batch, 
-          padding, 
+          batches,
+          padding,
           img.height - bottomPadding
         );
         ctx.strokeText(
-          batch, 
-          padding, 
+          batches,
+          padding,
           img.height - bottomPadding
         );
 
@@ -177,20 +195,19 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
       alert('Please enter a valid 10-digit mobile number');
       return;
     }
-    
+
     setStatus('submitting');
 
     try {
-      const imageUrl = await uploadImage();
-      
-      // Update Firestore document
+      const imageUrl = imageFile ? await uploadImage() : formData.imageUrl;
       const studentRef = doc(db, 'students', student.id);
+      
       await updateDoc(studentRef, {
         ...formData,
         imageUrl: imageUrl || formData.imageUrl,
         updatedAt: new Date()
       });
-
+      
       // Update user authentication status if uid exists
       if (student.uid) {
         const success = await handleUserStatusToggle(student.uid, formData.status === 'active');
@@ -282,26 +299,6 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
                 required
                 style={{ width: '100%', padding: '8px' }}
               />
-            </label>
-          </div>
-
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px' }}>
-              Batch *
-              <select
-                name="batch"
-                value={formData.batch}
-                onChange={handleInputChange}
-                required
-                style={{ width: '100%', padding: '8px' }}
-              >
-                <option value="">Select Batch</option>
-                {batches.map(batch => (
-                  <option key={batch.id} value={batch.name}>
-                    {batch.name}
-                  </option>
-                ))}
-              </select>
             </label>
           </div>
 
@@ -412,6 +409,30 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
               </select>
               <small style={{ color: '#666', display: 'block', marginTop: '4px' }}>
                 Hold Ctrl (Cmd on Mac) to select multiple subjects
+              </small>
+            </label>
+          </div>
+
+          
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '5px' }}>
+              Batches *
+              <select
+                multiple
+                name="batches"
+                value={formData.batch}
+                onChange={handleBatchesChange}
+                required
+                style={{ width: '100%', padding: '8px', height: '120px' }}
+              >
+                {batches.map(batch => (
+                  <option key={batch.id} value={batch.name}>
+                    {batch.name}
+                  </option>
+                ))}
+              </select>
+              <small style={{ color: '#666', display: 'block', marginTop: '4px' }}>
+                Hold Ctrl (Cmd on Mac) to select multiple batches
               </small>
             </label>
           </div>

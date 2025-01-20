@@ -211,7 +211,6 @@ function VideoListPage() {
         
         // Process video files
         const videoData = await videoResponse.json();
-        console.log('Video data:', videoData.items.length);
         let videoFiles = videoData.items?.map(item => {
           // Split title by underscores to get components
           const [batch, subject, topic, subtopic] = item.title.split('_');
@@ -256,11 +255,11 @@ function VideoListPage() {
         
         if (!isAdmin && studentData) {
           allFiles = allFiles.filter(file => {
-            return studentData.batch === file.batch && 
+            return studentData.batch?.includes(file.batch) && 
                    studentData.subjects?.includes(file.subject);
           });
         }
-
+        
         setVideos(allFiles);
         setLoading(false);
       } catch (err) {
@@ -429,9 +428,7 @@ function VideoListPage() {
       const docSnap = await getDoc(docRef);
       
       if (docSnap.exists()) {
-        console.log('Selected student:', selectedStudentEmail);
         const filesArray = docSnap.data().files?.split('|||') || [];
-        console.log('Files:', filesArray);
         setAccessibleFiles(new Set(filesArray));
       }
       else {
