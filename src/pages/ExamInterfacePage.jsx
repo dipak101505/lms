@@ -9,7 +9,7 @@ import { useLocation } from 'react-router-dom';
 import Katex from "@matejmazur/react-katex";
 import "katex/dist/katex.min.css";
 import { set } from 'firebase/database';
-
+import { useNavigate } from 'react-router-dom';
 const CONTENT_TYPES = {
   TEXT: "text",
   IMAGE: "image",
@@ -265,7 +265,7 @@ const QuestionPalette = styled.div`
   font-weight: bold;
   overflow: auto;
   padding: 10px;
-  height: 183px;
+  min-height: 183px;
 `;
 
 const PaletteHeader = styled.div`
@@ -377,14 +377,69 @@ const Timer = styled.div`
   `}
 `;
 
+const WelcomeScreen = styled.div`
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  z-index: 1000;
+`;
+
+const StartButton = styled.button`
+  padding: 12px 24px;
+  background: #FF9800;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 16px;
+  cursor: pointer;
+  
+  &:hover {
+    background: #F57C00;
+  }
+`;
+
+// Modal component
+const Modal = styled.div`
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1001;
+`;
+
+const ModalContent = styled.div`
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+`;
+
+const ModalButton = styled.button`
+  padding: 8px 16px;
+  background: #FF9800;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  
+  &:hover {
+    background: #F57C00;
+  }
+`;
+
 function ExamInterfacePage() {
   const location = useLocation();
   // const examData = location.state?.examData;
   const examId = location.pathname.split('/').pop();
   const [examData, setExamData] = useState(null);
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [questions, setQuestions] = useState({});
-  const [topics, setTopics] = useState([]);
   const [currentTopic, setCurrentTopic] = useState("");
   const { user } = useAuth();
   const [questionStatuses, setQuestionStatuses] = useState(new Map());
@@ -392,40 +447,46 @@ function ExamInterfacePage() {
   const [subjects, setSubjects] = useState([]);
   const [questionsBySection, setQuestionsBySection] = useState(new Map());
   const [selectedAnswers, setSelectedAnswers] = useState(new Map());
+  const [examStarted, setExamStarted] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [answersObject, setAnswersObject] = useState({});
 
-  // Sample questions data
-  const sampleQuestions = {
-    1: {
-      id: 'q1',
-      q: 'A particle moves in a straight line with constant acceleration. If the initial velocity is u and after time t the velocity becomes v, then the displacement s of the particle is given by:',
-      o1: 's = ut + (1/2)at²',
-      o2: 's = vt - (1/2)at²',
-      o3: 's = ((v+u)/2)t',
-      o4: 's = vt + (1/2)at²',
-      ans: 'C',
-      f: false
-    },
-    2: {
-      id: 'q2',
-      q: 'The value of g (acceleration due to gravity) at a height h above the earths surface is related to g₀ (the value of g at the surface) by the equation:',
-      o1: 'g = g₀(R/(R+h))²',
-      o2: 'g = g₀(R+h/R)²',
-      o3: 'g = g₀(R-h/R)²',
-      o4: 'g = g₀(R/R-h)²',
-      ans: 'A',
-      f: false
-    },
-    3: {
-      id: 'q3',
-      q: 'A body is thrown vertically upward with an initial velocity u. The time taken by the body to return to the point of projection is:',
-      o1: 'u/g',
-      o2: '2u/g',
-      o3: '3u/g',
-      o4: '4u/g',
-      ans: 'B',
-      f: false
-    }
-  };
+// Add navigate hook
+const navigate = useNavigate();
+
+// Add modal component
+const SubmitModal = styled.div`
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1001;
+`;
+
+const ModalContent = styled.div`
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  text-align: center;
+`;
+
+const ModalButton = styled.button`
+  padding: 8px 16px;
+  background: #FF9800;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  cursor: pointer;
+  
+  &:hover {
+    background: #F57C00;
+  }
+`;
+
 
   useEffect(() => {
     const loadExam = async () => {
@@ -445,6 +506,7 @@ function ExamInterfacePage() {
     if (examData?.questions) {
       // Get unique sections from questions
       const uniqueSections = [...new Set(examData.questions.map(q => q.metadata.sectionName))];
+      console.log('Unique sections:', uniqueSections,examData.metadata); // For debuggin
       const topicsFromSections = uniqueSections.map(section => ({
         id: section,
         name: section
@@ -471,49 +533,195 @@ function ExamInterfacePage() {
   }, [examData]);
 
   useEffect(() => {
-    let time=-10;
-    const timer = setInterval(() => {
-      if(time<=-10)
-      {
-        time=examData?.duration * 60;
+    const enterFullscreen = async () => {
+      try {
+        const element = document.documentElement;
+        
+        if (element.requestFullscreen) {
+          await element.requestFullscreen();
+        } else if (element.webkitRequestFullscreen) { // Safari
+          await element.webkitRequestFullscreen();
+        } else if (element.msRequestFullscreen) { // IE11
+          await element.msRequestFullscreen();
+        }
+      } catch (err) {
+        console.log('Fullscreen error:', err);
       }
-      if(time%60==0||time<60)
-        setTimeLeft(time);
-      time--;
-    }, 1000);
-
-    // Cleanup on component unmount
-    return () => clearInterval(timer);
+    };
+  
+    // Small delay to let the page load
+    setTimeout(enterFullscreen, 1000);
   }, []);
+  
+  // useEffect(() => {
+  //   let time = examData?.duration ? examData.duration * 60 : 0;
+    
+  //   const timer = setInterval(() => {
+  //     if (typeof time !== 'number' || isNaN(time)) {
+  //       time = examData?.duration ? examData.duration * 60 : 0;
+  //     }
+  
+  //     if (time >= 0) {
+  //       if (time % 60 === 0 || time < 60) {
+  //         setTimeLeft(time);
+  //       }
+  //       time--;
+  //     }
+  //     console.log('Time left:', time); // Debugging
+  //   }, 1000);
+  
+  //   return () => clearInterval(timer);
+  // }, [examData?.duration]);
 
+  const startTimer = (duration) => {
+    let time = examData?.duration ? examData.duration * 60 : 0;
+    
+    const timer = setInterval(() => {
+      if (typeof time !== 'number' || isNaN(time)) {
+        time = examData?.duration ? examData.duration * 60 : 0;
+      }
+  
+      if (time >= 0) {
+        if (time % 60 === 0 || time < 60) {
+          setTimeLeft(time);
+        }
+        time--;
+      }
+      console.log('Time left:', time); // Debugging
+    }, 1000);
+  
+    return () => clearInterval(timer);
+  };
+  
   const loadTopic = async (topicId) => {
-    setQuestions(sampleQuestions);
     setCurrentTopic(topicId);
     setCurrentSlide(0);
   };
 
+  // Add this useEffect near other hooks
+useEffect(() => {
+  const enterFullscreen = async () => {
+    const elem = document.documentElement;
+    try {
+      if (elem.requestFullscreen) {
+        await elem.requestFullscreen();
+      } else if (elem.webkitRequestFullscreen) {
+        await elem.webkitRequestFullscreen();
+      }
+    } catch (error) {
+      console.error('Fullscreen error:', error);
+    }
+  };
+
+  const preventExit = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      enterFullscreen();
+    }
+  };
+
+  // Enter fullscreen on mount
+  enterFullscreen();
   
-const handleSubmit = async () => {
-  try {
-    const statusesObject = Object.fromEntries(
-      Array.from(questionStatuses.entries()).map(([topic, statusMap]) => [
-        topic,
-        Object.fromEntries(statusMap)
-      ])
-    );
-    
-    const examResultsRef = doc(db, 'examResults', `${examId}_${user.uid}`);
-    await setDoc(examResultsRef, {
-      examId,
-      userId: user.uid,
-      answers: Object.fromEntries(selectedAnswers),
-      questionStatuses: statusesObject,
-      submittedAt: new Date()
-    }, { merge: true });
-  } catch (error) {
-    console.error('Error submitting exam:', error);
-  }
-};
+  // Prevent exit with Escape key
+  document.addEventListener('keydown', preventExit);
+
+  // Re-enter if user somehow exits
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement) {
+      enterFullscreen();
+    }
+  });
+
+  return () => {
+    document.removeEventListener('keydown', preventExit);
+    document.removeEventListener('fullscreenchange', enterFullscreen);
+  };
+}, []);
+
+useEffect(() => {
+  const handleFullscreenChange = () => {
+    if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+      setShowModal(true);
+    }
+  };
+
+  const handleKeydown = (e) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      setShowModal(true);
+    }
+  };
+
+  document.addEventListener('fullscreenchange', handleFullscreenChange);
+  document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+  document.addEventListener('keydown', handleKeydown);
+
+  return () => {
+    document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.removeEventListener('keydown', handleKeydown);
+  };
+}, []);
+
+  const handleSubmit = async () => {
+    try {
+      const answersObject = {};
+      const marksObject = {};
+  
+      // Process each section
+      selectedAnswers.forEach((sectionAnswers, section) => {
+        // Convert answers Map to object
+        answersObject[section] = Object.fromEntries(sectionAnswers);
+        
+        // Initialize marks for this section
+        let positiveMarks = 0;
+        let negativeMarks = 0;
+        
+        // Calculate marks for each answer
+        sectionAnswers.forEach((answer, questionId) => {
+          const question = questionsBySection.get(section)
+            .find(q => q.id === questionId);
+            
+          if (question) {
+            if (question.correctAnswer === answer) {
+              positiveMarks += question.metadata.marks.correct || 0;
+            } else {
+              negativeMarks += question.metadata.marks.incorrect || 0;
+            }
+          }
+        });
+        negativeMarks =  negativeMarks<0?negativeMarks*=-1:negativeMarks=negativeMarks;
+        // Store marks in answer object
+        answersObject[section] = {
+          ...answersObject[section],
+          totalMarks: positiveMarks - negativeMarks,
+          positiveMarks,
+          negativeMarks
+        };
+      });
+  
+      // Save to Firestore
+      const examResultsRef = doc(db, 'examResults', `${examId}_${user.uid}`);
+      await setDoc(examResultsRef, {
+        examId,
+        userId: user.uid,
+        answers: answersObject,
+        questionStatuses: Object.fromEntries(
+          Array.from(questionStatuses.entries()).map(([topic, statusMap]) => [
+            topic,
+            Object.fromEntries(statusMap)
+          ])
+        ),
+        submittedAt: new Date()
+      }, { merge: true });
+  
+      setAnswersObject(answersObject);
+      setShowSubmitModal(true);
+    } catch (error) {
+      console.error('Error submitting exam:', error);
+    }
+  };
 
   const markAnswered = (questionIndex) => {
     setQuestionStatuses(prev => {
@@ -567,7 +775,13 @@ const handleSubmit = async () => {
       // Clear selected answer from state
       setSelectedAnswers(prev => {
         const newAnswers = new Map(prev);
-        newAnswers.delete(sectionQuestions[currentSlide].id);
+        if (newAnswers.has(currentTopic)) {
+          const sectionAnswers = newAnswers.get(currentTopic);
+          sectionAnswers.delete(sectionQuestions[currentSlide].id);
+          if (sectionAnswers.size === 0) {
+            newAnswers.delete(currentTopic);
+          }
+        }
         return newAnswers;
       });
   
@@ -639,229 +853,328 @@ const ContentRenderer = ({ content }) => {
   }
 };
 
+const enterFullscreen = async () => {
+  try {
+    const elem = document.documentElement;
+    if (elem.requestFullscreen) {
+      await elem.requestFullscreen();
+    } else if (elem.webkitRequestFullscreen) { // Safari
+      await elem.webkitRequestFullscreen();
+    } else if (elem.msRequestFullscreen) { // IE11
+      await elem.msRequestFullscreen();
+    }
+  } catch (error) {
+    console.error('Fullscreen error:', error);
+  }
+};
+
+  const renderMarksSummary = (answersObject) => {
+    return Object.entries(answersObject).map(([section, data]) => (
+      <div key={section} style={{ marginBottom: '10px' }}>
+        <h3 style={{ fontWeight: 'bold', color: '#FF9800' }}>{section}</h3>
+        <p>Total Marks: {data.totalMarks}</p>
+        <p>Positive Marks: {data.positiveMarks}</p>
+        <p>Negative Marks: {data.negativeMarks}</p>
+      </div>
+    ));
+  };
+
   return (
-    <ExamContainer>
-      <LeftSection>
-        <header style={{ backgroundColor: "#000000" }}>
-          <img 
-            src="/zenithLogo.png" 
-            height="50" 
-            alt="Zenith Logo"
-            style={{ margin: '5px 5px' }}
-          />
-        </header>
+    <>
+      {!examStarted && (
+        <WelcomeScreen>
+          <h1>{examData?.name}</h1>
+          <p>Duration: {examData?.duration} minutes</p>
+          <StartButton 
+            onClick={async () => {
+              await enterFullscreen();
+              setExamStarted(true);
+              startTimer(examData.duration);
+            }}
+          >
+            Start Exam
+          </StartButton>
+        </WelcomeScreen>
+      )}
+      
+      {examStarted && (
+        <ExamContainer>
+          <LeftSection>
+            <header style={{ backgroundColor: "#000000" }}>
+              <img 
+                src="/zenithLogo.png" 
+                height="50" 
+                alt="Zenith Logo"
+                style={{ margin: '5px 5px' }}
+              />
+            </header>
 
-        <Header1>
-          {examData?.name} 
-          <div style={{ 
-            color: '#FFFFFF',
-            fontFamily: 'arial,verdana,helvetica,sans-serif',
-            float: 'right',
-            display: 'inline-block',
-            margin: '0px 10px',
-            fontWeight: 'bold'
-          }}>
-            <div>Instructions</div>
-          </div>
-          <div style={{ 
-            color: '#FFFFFF',
-            fontFamily: 'arial,verdana,helvetica,sans-serif',
-            float: 'right',
-            display: 'inline-block',
-            margin: '0px 10px',
-            fontWeight: 'bold'
-          }}>
-            <div>Question Paper</div>
-          </div>
-        </Header1>
-
-        <ExamName>
-          {/* <ExamNameText>{examData?.name || 'Joint Entrance Exam'}</ExamNameText> */}
-        </ExamName>
-
-        <TimeSection>
-          {currentTopic || 'Section'}
-          <Timer $timeLeft={timeLeft}>Time Left: {formatTime(timeLeft)}</Timer>
-        </TimeSection>
-
-        <SectionNames>
-          {subjects.map((topic, index) => (
-            <SectionItem 
-              key={topic.id}
-              className={currentTopic === topic.id ? 'section_selected' : 'section_unselected'}
-              onClick={() => loadTopic(topic.id)}
-            >
-              {topic.name}
-            </SectionItem>
-          ))}
-        </SectionNames>
-
-        <QuestionArea>
-          <QuestionTitle>
-            <div>Question no. {currentSlide + 1}</div>
-          </QuestionTitle>
-
-          {/* Question content */}
-          {questionsBySection?.get(currentTopic)?.length >= currentSlide+1 && (
-            <div style={{ opacity: 1, zIndex: 2, position: 'relative' }}>
+            <Header1>
+              {examData?.name} 
               <div style={{ 
-                backgroundColor: '#ffffff',
-                fontSize: '19px',
-                marginBottom: '10px',
-                padding: '20px'
-              }}>
-                {questionsBySection.get(currentTopic)[currentSlide].contents?.map((content, i) => (
-                  <ContentRenderer key={i} content={content} />
-                ))}
-              </div>
-
-              <div style={{
-                backgroundColor: '#ffffff',
-                fontSize: '19px',
-                marginBottom: '20px',
-                textAlign: 'left',
+                color: '#FFFFFF',
+                fontFamily: 'arial,verdana,helvetica,sans-serif',
+                float: 'right',
                 display: 'inline-block',
-                padding: '10px'
-              }}>                
-              {questionsBySection.get(currentTopic)[currentSlide].options?.map((option, optIndex) => (
-                  <div key={optIndex} style={{ display: 'block', marginBottom: '10px' }}>
-                    <input 
-                      type="radio" 
-                      name={`question${currentSlide + 1}`}
-                      value={['A', 'B', 'C', 'D'][optIndex]}
-                      checked={selectedAnswers.get(questionsBySection.get(currentTopic)[currentSlide].id) === ['A', 'B', 'C', 'D'][optIndex]}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          markAnswered(currentSlide);
-                        }
-                        setSelectedAnswers(prev => {
-                          const newAnswers = new Map(prev);
-                          newAnswers.set(questionsBySection.get(currentTopic)[currentSlide].id, e.target.value);
-                          return newAnswers;
-                        });
-                      }}
-                    />                    
-                    {option.contents?.map((content, i) => (
+                margin: '0px 10px',
+                fontWeight: 'bold'
+              }}>
+                <div>Instructions</div>
+              </div>
+              <div style={{ 
+                color: '#FFFFFF',
+                fontFamily: 'arial,verdana,helvetica,sans-serif',
+                float: 'right',
+                display: 'inline-block',
+                margin: '0px 10px',
+                fontWeight: 'bold'
+              }}>
+                <div>Question Paper</div>
+              </div>
+            </Header1>
+
+            <ExamName>
+              {/* <ExamNameText>{examData?.name || 'Joint Entrance Exam'}</ExamNameText> */}
+            </ExamName>
+
+            <TimeSection>
+              {currentTopic || 'Section'}
+              <Timer $timeLeft={timeLeft}>Time Left: {formatTime(timeLeft)}</Timer>
+            </TimeSection>
+
+            <SectionNames>
+              {subjects.map((topic, index) => (
+                <SectionItem 
+                  key={topic.id}
+                  className={currentTopic === topic.id ? 'section_selected' : 'section_unselected'}
+                  onClick={() => loadTopic(topic.id)}
+                >
+                  {topic.name}
+                </SectionItem>
+              ))}
+            </SectionNames>
+
+            <QuestionArea>
+              <QuestionTitle>
+                <div>Question no. {currentSlide + 1}</div>
+              </QuestionTitle>
+
+              {/* Question content */}
+              {questionsBySection?.get(currentTopic)?.length >= currentSlide+1 && (
+                <div style={{ opacity: 1, zIndex: 2, position: 'relative' }}>
+                  <div style={{ 
+                    backgroundColor: '#ffffff',
+                    fontSize: '19px',
+                    marginBottom: '10px',
+                    padding: '20px'
+                  }}>
+                    {questionsBySection.get(currentTopic)[currentSlide].contents?.map((content, i) => (
                       <ContentRenderer key={i} content={content} />
                     ))}
                   </div>
-                ))}
-              </div>
+
+                  <div style={{
+                    backgroundColor: '#ffffff',
+                    fontSize: '19px',
+                    marginBottom: '20px',
+                    textAlign: 'left',
+                    display: 'inline-block',
+                    padding: '10px'
+                  }}>                
+                  {questionsBySection.get(currentTopic)[currentSlide].options?.map((option, optIndex) => {
+                    const questionId = questionsBySection.get(currentTopic)[currentSlide].id;
+                    const currentValue = ['A', 'B', 'C', 'D'][optIndex];
+                    const selectedValue = selectedAnswers.get(currentTopic)?.get(questionId);
+                    
+                    return (
+                      <div key={optIndex} style={{ display: 'block', marginBottom: '10px' }}>
+                        <input 
+                          type="radio" 
+                          name={`question${currentSlide + 1}`} // Unique name per question
+                          value={currentValue}
+                          checked={selectedValue === currentValue}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              markAnswered(currentSlide);
+                              console.log('Selected answer:', selectedAnswers);
+                              setSelectedAnswers(prev => {
+                                const newAnswers = new Map(prev);
+                                if (!newAnswers.has(currentTopic)) {
+                                  newAnswers.set(currentTopic, new Map());
+                                }
+                                newAnswers.get(currentTopic).set(questionId, currentValue);
+                                return newAnswers;
+                              });
+                            }
+                          }}
+                        />                    
+                        {option.contents?.map((content, i) => (
+                          <ContentRenderer key={i} content={content} />
+                        ))}
+                      </div>
+                    );
+                  })}
+                  </div>
+                </div>
+              )}
+            </QuestionArea>
+
+            <NavigationButtons>
+              <Button onClick={handleMarkForReview}>
+                Mark for Review & Next
+              </Button>
+              <Button onClick={handleClearResponse}>
+                Clear Response
+              </Button>
+              <Button 
+                style={{ opacity: currentSlide === 0 ? 0 : 1 }}
+                onClick={() => setCurrentSlide(prev => prev - 1)}
+              >
+                Previous
+              </Button>
+              <Button id="next" onClick={() => {
+                let hasAnswer = document.querySelector(`input[name="question${currentSlide + 1}"]:checked`);
+                if (hasAnswer) {
+                  markAnswered(currentSlide);
+                }
+                else {
+                  markNotAnswered(currentSlide);
+                }
+                if(currentSlide+1<questionsBySection.get(currentTopic).length)
+                  setCurrentSlide(prev => prev + 1);
+                else if(subjects.findIndex((topic) => topic.id === currentTopic)+1<subjects.length)
+                  {
+                    setCurrentSlide(0);
+                    loadTopic(subjects[subjects.findIndex((topic) => topic.id === currentTopic)+1].id);
+                  }
+                  hasAnswer = document.querySelector(`input[name="question${currentSlide + 2}"]:checked`);
+                  if (hasAnswer) {
+                    markAnswered(currentSlide+1);
+                  }
+                  else {
+                    markNotAnswered(currentSlide+1);
+                  }
+              }}>
+                Save and Next
+              </Button>
+            </NavigationButtons>
+          </LeftSection>
+
+          <Sidebar>
+            <PersonInfo>
+              <ProfileImage 
+                src="https://www.digialm.com//OnlineAssessment/images/NewCandidateImage.jpg" 
+                alt="Profile"
+              />
+              <div id="cname">{user.email}</div>
+            </PersonInfo>
+            
+            <ColorInfo>
+              <InfoItem>
+                <StatusIcon style={{ backgroundPosition: "-7px -55px" }} />
+                <StatusText>Answered</StatusText>
+              </InfoItem>
+              <InfoItem>
+                <StatusIcon style={{ backgroundPosition: "-42px -56px" }} />
+                <StatusText>Not Answered</StatusText>
+              </InfoItem>
+              <InfoItem>
+                <StatusIcon style={{ backgroundPosition: "-107px -56px" }} />
+                <StatusText>Not Visited</StatusText>
+              </InfoItem>
+              <InfoItem>
+                <StatusIcon style={{ backgroundPosition: "-75px -54px" }} />
+                <StatusText>Marked for Review</StatusText>
+              </InfoItem>
+              <InfoItem className="long">
+                <StatusIcon style={{ backgroundPosition: "-9px -87px" }} />
+                <StatusText>
+                  Answered & Marked for Review (will be considered for evaluation)
+                </StatusText>
+              </InfoItem>
+            </ColorInfo>
+
+            <div>
+              <PaletteHeader>
+                {currentTopic || 'Section'}
+              </PaletteHeader>
+              <QuestionPalette>
+                <ChooseText>Choose a Question</ChooseText>
+                <PaletteGrid>
+                  {Object.keys(questionsBySection.get(currentTopic) || {}).map((_, index) => {
+                    const status = questionStatuses.get(currentTopic)?.get(index) || 'nv';
+                    return (
+                      <QuestionNumber 
+                        key={index} 
+                        className={status}
+                        onClick={() => {
+                          if (status === 'nv') {
+                            markNotAnswered(index);
+                          }
+                          setCurrentSlide(index);
+                        }}
+                        style={{
+                          borderLeft: currentSlide === index ? '1px solid #3b82f6' : 'none',
+                          borderRight: currentSlide === index ? '1px solid #3b82f6' : 'none',
+                          // paddingLeft: currentSlide === index ? '2px' : '0',
+                          //</PaletteGrid> paddingRight: currentSlide === index ? '2px' : '0',
+                          //</QuestionPalette> margin: currentSlide === index ? '0 -1px' : '0' // Compensate for borders
+                        }}
+                      >
+                        {index + 1}
+                      </QuestionNumber>
+                    );
+                  })}
+                </PaletteGrid>
+              </QuestionPalette>
             </div>
-          )}
-        </QuestionArea>
 
-        <NavigationButtons>
-          <Button onClick={handleMarkForReview}>
-            Mark for Review & Next
-          </Button>
-          <Button onClick={handleClearResponse}>
-            Clear Response
-          </Button>
-          <Button 
-            style={{ opacity: currentSlide === 0 ? 0 : 1 }}
-            onClick={() => setCurrentSlide(prev => prev - 1)}
+            <div style={{ 
+              position: 'absolute', 
+              bottom: '0', 
+              width: '100%', 
+              padding: '10px',
+              borderTop: '1px solid #c3c3c1' 
+            }}>
+              <Button style={{ width: '50%' }}
+              onClick={handleSubmit}
+              >Submit</Button>
+            </div>
+          </Sidebar>
+        </ExamContainer>
+      )}
+
+      {showModal && (
+      <Modal>
+        <ModalContent>
+          <p>You are not allowed to escape fullscreen mode.</p>
+          <ModalButton 
+            onClick={async () => {
+              await enterFullscreen();
+              setShowModal(false);
+            }}
           >
-            Previous
-          </Button>
-          <Button id="next" onClick={() => {
-            const hasAnswer = document.querySelector(`input[name="question${currentSlide + 1}"]:checked`);
-            if (hasAnswer) {
-              markAnswered(currentSlide);
-            }
-            else {
-              markNotAnswered(currentSlide);
-            }
-            if(currentSlide+1<questionsBySection.get(currentTopic).length)
-              setCurrentSlide(prev => prev + 1);
-            else if(subjects.findIndex((topic) => topic.id === currentTopic)+1<subjects.length)
-              {
-                setCurrentSlide(0);
-                loadTopic(subjects[subjects.findIndex((topic) => topic.id === currentTopic)+1].id);
-              }
-          }}>
-            Save and Next
-          </Button>
-        </NavigationButtons>
-      </LeftSection>
+            OK
+          </ModalButton>
+        </ModalContent>
+      </Modal>
+    )}
 
-      <Sidebar>
-        <PersonInfo>
-          <ProfileImage 
-            src="https://www.digialm.com//OnlineAssessment/images/NewCandidateImage.jpg" 
-            alt="Profile"
-          />
-          <div id="cname">Zenith Student</div>
-        </PersonInfo>
-        
-        <ColorInfo>
-          <InfoItem>
-            <StatusIcon style={{ backgroundPosition: "-7px -55px" }} />
-            <StatusText>Answered</StatusText>
-          </InfoItem>
-          <InfoItem>
-            <StatusIcon style={{ backgroundPosition: "-42px -56px" }} />
-            <StatusText>Not Answered</StatusText>
-          </InfoItem>
-          <InfoItem>
-            <StatusIcon style={{ backgroundPosition: "-107px -56px" }} />
-            <StatusText>Not Visited</StatusText>
-          </InfoItem>
-          <InfoItem>
-            <StatusIcon style={{ backgroundPosition: "-75px -54px" }} />
-            <StatusText>Marked for Review</StatusText>
-          </InfoItem>
-          <InfoItem className="long">
-            <StatusIcon style={{ backgroundPosition: "-9px -87px" }} />
-            <StatusText>
-              Answered & Marked for Review (will be considered for evaluation)
-            </StatusText>
-          </InfoItem>
-        </ColorInfo>
-
-        <div>
-          <PaletteHeader>
-            {currentTopic || 'Section'}
-          </PaletteHeader>
-          <QuestionPalette>
-            <ChooseText>Choose a Question</ChooseText>
-            <PaletteGrid>
-              {Object.keys(questionsBySection.get(currentTopic) || {}).map((_, index) => {
-                const status = questionStatuses.get(currentTopic)?.get(index) || 'nv';
-                return (
-                  <QuestionNumber 
-                    key={index} 
-                    className={status}
-                    onClick={() => {
-                      if (status === 'nv') {
-                        markNotAnswered(index);
-                      }
-                      setCurrentSlide(index);
-                    }}
-                  >
-                    {index + 1}
-                  </QuestionNumber>
-                );
-              })}
-            </PaletteGrid>
-          </QuestionPalette>
-        </div>
-
-        <div style={{ 
-          position: 'absolute', 
-          bottom: '0', 
-          width: '100%', 
-          padding: '10px',
-          borderTop: '1px solid #c3c3c1' 
-        }}>
-          <Button style={{ width: '50%' }}
-          onClick={handleSubmit}
-          >Submit</Button>
-        </div>
-      </Sidebar>
-    </ExamContainer>
+      {showSubmitModal && (
+      <SubmitModal>
+        <ModalContent>
+          <h2>Submission Summary</h2>
+          {renderMarksSummary(answersObject)}
+          <ModalButton 
+            onClick={() => navigate('/')}
+          >
+            OK
+          </ModalButton>
+        </ModalContent>
+      </SubmitModal>
+    )}
+    </>
   );
 }
 
 export default ExamInterfacePage;
-

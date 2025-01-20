@@ -3,8 +3,11 @@ import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc } from 'firebase
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 
 function ExamPage() {
+  const location = useLocation();
+
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [batches, setBatches] = useState([]);
@@ -19,7 +22,9 @@ function ExamPage() {
     date: '',
     time: '',
     duration: '',
-    totalMarks: ''
+    totalMarks: '',
+    videoKey: location.state?.videoKey || '' // Auto-populate from navigation state
+
   });
   const { user, isAdmin } = useAuth();
   const [applications, setApplications] = useState({});
@@ -340,6 +345,23 @@ function ExamPage() {
                   />
                 </label>
               </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#4a5568' }}>
+                  Location
+                  <input
+                    type="text"
+                    value={formData.videoKey}
+                    onChange={(e) => setFormData({ ...formData, videoKey: e.target.value })}
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '4px'
+                    }}
+                  />
+                </label>
+              </div>
             </div>
             <button
               type="submit"
@@ -409,8 +431,8 @@ function ExamPage() {
                       {exam.name}
                     </td>
                     <td style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>{exam.sections?.map(sectionId => 
-        subjects.find(s => s.id === sectionId)?.name
-      ).join(', ')}</td>
+                      subjects.find(s => s.id === sectionId)?.name
+                    ).join(', ')}</td>
                     <td style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>{exam.date}</td>
                     <td style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>{exam.time}</td>
                     <td style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>{exam.duration} mins</td>
