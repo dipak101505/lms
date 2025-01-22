@@ -286,7 +286,7 @@ function AttendancePage() {
           }}>
             {filteredStudents
               .filter(student => 
-                student.batch === selectedBatch && 
+                student.batch.includes(selectedBatch) && 
                 student.status === 'active' &&
                 student.subjects?.includes(selectedSubject)
               )
@@ -331,7 +331,7 @@ function AttendancePage() {
           </div>
 
           {filteredStudents.filter(student => 
-            student.batch === selectedBatch && 
+            student.batch.includes(selectedBatch) && 
             student.status === 'active' &&
             student.subjects?.includes(selectedSubject)
           ).length === 0 && (
@@ -348,7 +348,7 @@ function AttendancePage() {
           )}
 
           {filteredStudents.filter(student => 
-            student.batch === selectedBatch && 
+            student.batch.includes(selectedBatch) && 
             student.status === 'active' &&
             student.subjects?.includes(selectedSubject)
           ).length > 0 && (
