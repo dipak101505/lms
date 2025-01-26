@@ -10,12 +10,15 @@ import Katex from "@matejmazur/react-katex";
 import "katex/dist/katex.min.css";
 import { set } from 'firebase/database';
 import { useNavigate } from 'react-router-dom';
+import { getExamQuestions, saveExamResult } from '../services/questionService';
 const CONTENT_TYPES = {
   TEXT: "text",
   IMAGE: "image",
   LATEX: "latex",
   TABLE: "table",
 };
+
+
 
 // Styled Components
 const ExamContainer = styled.div`
@@ -340,7 +343,7 @@ const QuestionNumber = styled.div`
 
 const fetchExamData = async (examId) => {
   try {
-    // Fetch exam data
+    // Fetch exam data from Firebase
     const examRef = doc(db, 'exams', examId);
     const examSnapshot = await getDoc(examRef);
     
@@ -348,20 +351,24 @@ const fetchExamData = async (examId) => {
       throw new Error('Exam not found');
     }
 
-    // Fetch questions
-    const questionsRef = collection(db, `exams/${examId}/questions`);
-    const questionsSnapshot = await getDocs(questionsRef);
+    // Fetch questions from DynamoDB using questionService
+    const questions = await getExamQuestions(examId);
     
-    const questions = questionsSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
+    // Transform DynamoDB response if needed
+    const transformedQuestions = questions.map(question => ({
+      id: question.SK.split('#')[1], // Extract ID from SK
+      question: question.contents,
+      options: question.options,
+      metadata: question.metadata,
+      correctAnswer: question.correctAnswer
     }));
-
+    console.log('QuestionsBefore:', questions); // Debugging
+    console.log('Questions:', transformedQuestions); // Debugging
     // Combine exam data with questions
     return {
       id: examId,
       ...examSnapshot.data(),
-      questions: questions
+      questions: transformedQuestions
     };
 
   } catch (error) {
@@ -664,6 +671,34 @@ useEffect(() => {
   };
 }, []);
 
+  const calculateSectionMarks = () => {
+    return Object.entries(answersObject).reduce((acc, [section, data]) => {
+      acc[section] = {
+        totalMarks: data.totalMarks || 0,
+        positiveMarks: data.positiveMarks || 0,
+        negativeMarks: data.negativeMarks || 0,
+        attempted: data.attempted || 0,
+        correct: data.correct || 0,
+        incorrect: data.incorrect || 0
+      };
+      return acc;
+    }, {});
+  };
+
+  const getAttemptedCount = () => {
+    return Array.from(questionStatuses.values())
+      .flat()
+      .filter(status => status === 'a')
+      .length;
+  };
+
+  const getMarkedForReviewCount = () => {
+    return Array.from(questionStatuses.values())
+      .flat()
+      .filter(status => status === 'mr' || status === 'amr')
+      .length;
+  };
+
   const handleSubmit = async () => {
     try {
       const answersObject = {};
@@ -684,10 +719,12 @@ useEffect(() => {
             .find(q => q.id === questionId);
             
           if (question) {
-            if (question.correctAnswer === answer) {
-              positiveMarks += question.metadata.marks.correct || 0;
+            console.log('Question:', question); // Debugging
+            console.log('Answer:', answer); // Debugging
+            if (question.correctAnswer.toLowerCase().trim() === answer.toLowerCase().trim()) {
+              positiveMarks += question.metadata?.marks?.correct || 0;
             } else {
-              negativeMarks += question.metadata.marks.incorrect || 0;
+              negativeMarks += question.metadata?.marks?.incorrect || 0;
             }
           }
         });
@@ -701,21 +738,29 @@ useEffect(() => {
         };
       });
   
-      // Save to Firestore
-      const examResultsRef = doc(db, 'examResults', `${examId}_${user.uid}`);
-      await setDoc(examResultsRef, {
-        examId,
-        userId: user.uid,
-        answers: answersObject,
-        questionStatuses: Object.fromEntries(
-          Array.from(questionStatuses.entries()).map(([topic, statusMap]) => [
-            topic,
-            Object.fromEntries(statusMap)
-          ])
-        ),
-        submittedAt: new Date()
-      }, { merge: true });
+      const examResult = {
+      examId,
+      userId: user.uid,
+      answers: answersObject,
+      questionStatuses: Object.fromEntries(
+        Array.from(questionStatuses.entries()).map(([topic, statusMap]) => [
+          topic,
+          Object.fromEntries(statusMap)
+        ])
+      ),
+      sections: calculateSectionMarks(),
+      statistics: {
+        timeSpent: examData.duration * 60 - timeLeft,
+        questionsAttempted: getAttemptedCount(),
+        questionsMarkedForReview: getMarkedForReviewCount()
+      },
+      status: 'completed'
+    };
+
+    await saveExamResult(user.uid, examId, examResult);
+    
   
+      setTimeLeft(0);
       setAnswersObject(answersObject);
       setShowSubmitModal(true);
     } catch (error) {
@@ -831,6 +876,8 @@ useEffect(() => {
 
 
 const ContentRenderer = ({ content }) => {
+  console.log(content); // Debugging
+  console.log(content.value); // Debugging
   switch (content.type) {
     case CONTENT_TYPES.TEXT:
       return <span className="text-content">{content.value}</span>;
@@ -968,9 +1015,10 @@ const enterFullscreen = async () => {
                     marginBottom: '10px',
                     padding: '20px'
                   }}>
-                    {questionsBySection.get(currentTopic)[currentSlide].contents?.map((content, i) => (
+                    {questionsBySection.get(currentTopic)[currentSlide].question?.map((content, i) => (
                       <ContentRenderer key={i} content={content} />
                     ))}
+                    {console.log("questionsBySection",questionsBySection.get(currentTopic)[currentSlide])}
                   </div>
 
                   <div style={{

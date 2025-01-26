@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { FaClipboardList } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip'
+import { getUserExamResults } from '../services/questionService';
 
 
 // Add this CSS animation
@@ -141,10 +142,21 @@ function VideoListPage() {
 
       const fetchExamData = async () => {
         try {
-          const examResultsRef = collection(db, 'examResults');
-          const q = query(examResultsRef, where('userId', '==', user.uid));
-          const querySnapshot = await getDocs(q);
-          setExamResults(querySnapshot.docs.map(doc=>doc.data()));
+          // Get exam results from DynamoDB
+          const results = await getUserExamResults(user.uid);
+          
+          // Transform DynamoDB response
+          const transformedResults = results.map(result => ({
+            examId: result.SK.replace('EXAM#', ''),
+            userId: result.userId,
+            answers: result.answers,
+            sections: result.sections,
+            statistics: result.statistics,
+            submittedAt: result.submittedAt,
+            status: result.status
+          }));
+      
+          setExamResults(transformedResults);
         } catch (error) {
           console.error('Error fetching exam results:', error);
         }
@@ -176,7 +188,6 @@ function VideoListPage() {
   // Fetch student data
   useEffect(() => {
     const fetchStudentData = async () => {
-      debugger;
       if (!user || isAdmin) return;
       
       try {
@@ -214,7 +225,7 @@ function VideoListPage() {
         id: doc.id,
         ...doc.data()
       }));
-      setExams(examList.filter(exam => exam?.batch === studentInfo.batch));
+      setExams(examList.filter(exam => studentInfo.batch.includes(exam.batch)));
       } catch (err) {
         console.error('Error fetching student data:', err);
         setError('Failed to fetch student data');
@@ -296,7 +307,7 @@ function VideoListPage() {
         
         if (!isAdmin && studentData) {
           allFiles = allFiles.filter(file => {
-            return studentData.batch === file.batch && 
+            return studentData.batch.includes(file.batch) && 
                    studentData.subjects?.includes(file.subject);
           });
           
@@ -517,7 +528,7 @@ function VideoListPage() {
 
   const ExamTooltipContent = ({ exam, examResults }) => {
     const result = examResults.find(r => r.examId === exam.id);
-    
+    console.log("result",result);
     return (
       <div className="tooltip-content">
         <div style={{ 
@@ -544,8 +555,20 @@ function VideoListPage() {
                 <div>Total Marks: {data.totalMarks}</div>
                 <div>Positive: {data.positiveMarks}</div>
                 <div>Negative: {data.negativeMarks}</div>
+                <div>Attempted: {data.attempted}</div>
+                <div>Correct: {data.correct}</div>
+                <div>Incorrect: {data.incorrect}</div>
               </div>
             ))}
+            <div className="mt-2 pt-2 border-t border-gray-200">
+              <div className="font-medium">Statistics</div>
+              <div>Time Spent: {Math.floor(result.statistics.timeSpent / 60)}m {result.statistics.timeSpent % 60}s</div>
+              <div>Questions Attempted: {result.statistics.questionsAttempted}</div>
+              <div>Marked for Review: {result.statistics.questionsMarkedForReview}</div>
+              <div className="text-gray-500 text-[10px] mt-1">
+                Submitted: {new Date(result.submittedAt).toLocaleString()}
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -553,13 +576,8 @@ function VideoListPage() {
   };  
 
   const formatVideoKey = (videoKey) => {
-    // Remove timestamp and extension
-    const nameWithoutTimestamp = videoKey.split('-')[0];
-    // Replace '/' with '_'
-    const formattedName = nameWithoutTimestamp
-      .split('/')
-      .join('_')
-      .replace(/ /g, '_');
+    //remove '_' "/" and "." 
+    const nameWithoutTimestamp = videoKey?.replace(/[_/.-]/g, '');
     return nameWithoutTimestamp;
   };
 
@@ -627,10 +645,10 @@ function VideoListPage() {
             {displayName}
           </Link>
         </div>
-        {exams.forEach(exam => console.log((exam.videoKey?exam.videoKey:""),formatVideoKey(file.name)))}
+        {exams.forEach(exam => {console.log("*******",formatVideoKey(exam.videoKey)); console.log("&&&&&&&&&",formatVideoKey(file.name));})}
         <div style={{ display: 'flex', alignItems: 'center' }}>
           {exams
-            .filter(exam => formatVideoKey(exam.videoKey?exam.videoKey:"") === formatVideoKey(file.name))
+            .filter(exam => formatVideoKey(file.name).includes(formatVideoKey(exam.videoKey)) )
             .sort((a, b) => new Date(a.date) > new Date(b.date))
             .map(exam => (
               <div key={exam.id}>

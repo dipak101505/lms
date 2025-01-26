@@ -1,18 +1,13 @@
 // src/pages/EditExamPage.jsx
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState, useRef, useMemo } from "react";
+import { getExamQuestions, saveQuestion, deleteQuestion } from "../services/questionService";
 import { useLocation, useNavigate } from "react-router-dom";
-import {
-  collection,
-  doc,
-  updateDoc,
-  addDoc,
-  getDocs,
-  deleteDoc,
-} from "firebase/firestore";
-import { db } from "../firebase/config";
 import styled from "styled-components";
 import Katex from "@matejmazur/react-katex";
 import "katex/dist/katex.min.css";
+import { collection, getDocs, addDoc, doc, deleteDoc } from "firebase/firestore";
+import { db } from "../firebase/config";
+
 
 const CONTENT_TYPES = {
   TEXT: "text",
@@ -82,58 +77,61 @@ const ContentRenderer = ({ content }) => {
   }
 };
 
-function EditExamPage() {
+const EditExamPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const examData = location.state?.examData;
   const [questions, setQuestions] = useState([]);
   const [currentQuestion, setCurrentQuestion] = useState(defaultQuestionSchema);
   const [selectedSection, setSelectedSection] = useState("all");
+  const examData = location.state?.examData;
 
-  useEffect(() => {
-    if (!examData) {
-      navigate("/exams");
-      return;
-    }
-    fetchQuestions();
-  }, [examData]);
-
-  const fetchQuestions = async () => {
-    try {
-      const questionsSnapshot = await getDocs(
-        collection(db, `exams/${examData.id}/questions`),
-      );
-      setQuestions(
-        questionsSnapshot.docs?.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        })),
-      );
-      console.log("Questions:", questions);
-    } catch (error) {
-      console.error("Error fetching questions:", error);
-    }
+  // Topic selection handler
+  const handleTopicSelect = (topic) => {
+    setCurrentQuestion(prev => ({
+      ...prev,
+      metadata: {
+        ...prev.metadata,
+        topic: topic
+      }
+    }));
   };
 
+  // Fetch questions from DynamoDB when examData is loaded
+  useEffect(() => {
+    const fetchQuestions = async () => {
+      try {
+        if (examData?.id) {
+          const fetched = await getExamQuestions(examData.id);
+          setQuestions(fetched);
+        }
+      } catch (error) {
+        console.error("Error fetching questions:", error);
+      }
+    };
+    fetchQuestions();
+  }, [examData?.id]);
+
+  // ...existing code...
   const handleAddContent = (type) => {
     setCurrentQuestion((prev) => ({
       ...prev,
       contents: [
-        ...prev.contents,
+        ...(Array.isArray(prev.contents) ? prev.contents : []),
         {
           type,
           value: "",
-          dimensions:
-            type === CONTENT_TYPES.IMAGE ? { width: 400, height: 300 } : 0,
+          dimensions: type === CONTENT_TYPES.IMAGE ? { width: 400, height: 300 } : 0,
         },
       ],
     }));
   };
+// ...existing code...
 
   const handleContentChange = (index, value, dimensions) => {
     setCurrentQuestion((prev) => {
-      const newContents = [...prev.contents];
-      if (dimensions) {
+      const newContents = [
+        ...(Array.isArray(prev.contents) ? prev.contents : []),
+      ];      if (dimensions) {
         newContents[index] = { ...newContents[index], value, dimensions };
       } else {
         newContents[index] = { ...newContents[index], value };
@@ -145,8 +143,10 @@ function EditExamPage() {
   const handleAddOption = () => {
     setCurrentQuestion((prev) => ({
       ...prev,
-      options: [...prev.options, { contents: [] }],
-    }));
+      options: [
+        ...(Array.isArray(prev.options) ? prev.options : []),
+        { contents: [] },
+      ],    }));
   };
 
   const handleOptionContentChange = (optionIndex, contentIndex, value) => {
@@ -160,29 +160,41 @@ function EditExamPage() {
     });
   };
 
+  // Example: Save or update question
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      console.log("Current Question:", currentQuestion);
-      await addDoc(
-        collection(db, `exams/${examData.id}/questions`),
-        currentQuestion,
-      );
-      setQuestions([...questions, currentQuestion]);
+      // Generate an ID if needed
+      const questionId = currentQuestion.id || Date.now().toString();
+      const questionWithId = {
+        ...currentQuestion,
+        id: questionId,
+      };
+
+      console.log("Saving question:", questionWithId);
+      console.log("Exam ID:", examData.id);
+
+      // Save to DynamoDB
+      await saveQuestion(examData.id, questionWithId);
+
+      // Update local state
+      setQuestions((prev) => [
+        ...prev.filter((q) => q.id !== questionId),
+        questionWithId,
+      ]);
+
+      // Reset form
       setCurrentQuestion(defaultQuestionSchema);
     } catch (error) {
-      console.error("Error adding question:", error);
+      console.error("Error saving question:", error);
     }
   };
 
-  // Add this delete handler function near your other handlers
+  // Example: Delete question
   const handleDeleteQuestion = async (questionId) => {
     try {
-      // Delete from Firestore
-      await deleteDoc(doc(db, `exams/${examData.id}/questions/${questionId}`));
-      
-      // Update local state
-      setQuestions(questions.filter(q => q.id !== questionId));
+      await deleteQuestion(examData.id, questionId);
+      setQuestions((prev) => prev.filter((q) => q.id !== questionId));
     } catch (error) {
       console.error("Error deleting question:", error);
     }
@@ -190,6 +202,119 @@ function EditExamPage() {
 
   // Get unique sections from questions
   const uniqueSections = [...new Set(questions?.map(q => q.metadata?.section))].filter(Boolean);
+
+
+  const TopicAutocomplete = ({ onSelect, initialValue }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [inputValue, setInputValue] = useState(initialValue || '');
+    const [highlightedIndex, setHighlightedIndex] = useState(-1);
+    const inputRef = useRef(null);
+    const dropdownRef = useRef(null);
+    const [topics, setTopics] = useState([]);
+
+// Add after other useEffects
+    useEffect(() => {
+      const fetchTopics = async () => {
+        try {
+          const topicsSnapshot = await getDocs(collection(db, 'topics'));
+          const topicsList = topicsSnapshot.docs.map(doc => doc.data().name);
+          setTopics(topicsList);
+        } catch (error) {
+          console.error("Error fetching topics:", error);
+        }
+      };
+
+      fetchTopics();
+    }, []);
+  
+    const filteredTopics = useMemo(() => 
+      topics.filter(topic => 
+        topic.toLowerCase().includes(inputValue.toLowerCase())
+      ),
+      [inputValue]
+    );
+
+    // Add click outside handler
+    useEffect(() => {
+      const handleClickOutside = (event) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+            inputRef.current && !inputRef.current.contains(event.target)) {
+          setIsOpen(false);
+        }
+      };
+  
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+  
+    const handleSelect = (topic) => {
+      setInputValue(topic);
+      setIsOpen(false);
+      onSelect(topic);
+    };
+  
+    return (
+      <div style={{ position: 'relative' }}>
+        <input
+          ref={inputRef}
+          type="text"
+          value={inputValue}
+          onChange={(e) => {
+            setInputValue(e.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          onBlur={(e) => {
+            // Don't close if clicking on dropdown
+            if (!dropdownRef.current?.contains(e.relatedTarget)) {
+              setTimeout(() => setIsOpen(false), 200);
+            }
+          }}
+          placeholder="Search or select topic..."
+          style={{
+            width: '100%',
+            padding: '8px',
+            borderRadius: '4px',
+            border: '1px solid #ccc'
+          }}
+        />
+        {isOpen && (
+          <ul
+            ref={dropdownRef}
+            style={{
+              position: 'absolute',
+              width: '100%',
+              maxHeight: '200px',
+              overflowY: 'auto',
+              backgroundColor: 'white',
+              border: '1px solid #ccc',
+              borderTop: 'none',
+              borderRadius: '0 0 4px 4px',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              zIndex: 1000,
+              margin: 0,
+              padding: 0,
+              listStyle: 'none'
+            }}
+          >
+            {filteredTopics.map((topic, index) => (
+              <li
+                key={topic}
+                onClick={() => handleSelect(topic)}
+                style={{
+                  padding: '8px',
+                  cursor: 'pointer',
+                  backgroundColor: index === highlightedIndex ? '#f0f0f0' : 'white'
+                }}
+              >
+                {topic}
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+    );
+  };
 
   console.log("questions", questions);
   return (
@@ -364,6 +489,18 @@ function EditExamPage() {
                   </option>
                 ))}
               </select>
+
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '5px' }}>
+                  Topic *
+                  <TopicAutocomplete 
+                    onSelect={handleTopicSelect}
+                    initialValue={currentQuestion?.metadata?.topic || ''}
+                  />
+                </label>
+              </div>
+
+
               <input
                 type="text"
                 value={currentQuestion.metadata.topic}
@@ -405,11 +542,32 @@ function EditExamPage() {
               <option value={QUESTION_TYPES.NUMERICAL}>Numerical Type</option>
             </select>
 
+            {/* Difficulty */}
+            <select
+              value={currentQuestion.metadata.difficulty}
+              onChange={(e) =>
+                setCurrentQuestion({
+                  ...currentQuestion,
+                  metadata: {
+                    ...currentQuestion.metadata,
+                    difficulty: e.target.value,
+                  },
+                })
+              }
+              className="p-2 border rounded"
+              style={{ marginLeft: "10px" }}
+            >
+              <option value="easy">Easy</option>
+              <option value="medium">Medium</option>
+              <option value="hard">Hard</option>
+            </select>
+
+
             {/* Marks */}
             <div >
               <input
                 type="number"
-                value={currentQuestion.metadata.marks.correct}
+                value={currentQuestion.metadata.marks?.correct}
                 onChange={(e) =>
                   setCurrentQuestion({
                     ...currentQuestion,
@@ -427,7 +585,7 @@ function EditExamPage() {
               />
               <input
                 type="number"
-                value={currentQuestion.metadata.marks.incorrect}
+                value={currentQuestion.metadata.marks?.incorrect}
                 onChange={(e) =>
                   setCurrentQuestion({
                     ...currentQuestion,
@@ -449,7 +607,7 @@ function EditExamPage() {
             {/* Correct Answer */}
             <input
               type="text"
-              value={currentQuestion.correctAnswer}
+              value={currentQuestion?.correctAnswer}
               onChange={(e) =>
                 setCurrentQuestion({
                   ...currentQuestion,
@@ -510,7 +668,7 @@ function EditExamPage() {
           .map((question, index) => (
             <div key={index} className="question-preview mb-4 p-4 border rounded">
                 <h3 onClick={() => handleDeleteQuestion(question.id)} style={{cursor:'pointer'}}>Question {index + 1}</h3>
-              <div className="contents mb-4">
+              <div className="contents mb-4" onClick={() => setCurrentQuestion(question)}>
                 {question.contents?.map((content, i) => (
                   <ContentRenderer key={i} content={content} />
                 ))}
@@ -529,7 +687,7 @@ function EditExamPage() {
 
               <div className="metadata mt-2 text-sm text-gray-600">
 Topic:{" "}{question.metadata?.topic} | Marks:{" "}
-                {question.metadata?.marks?.correct} {" "} | Negative Marks:{" "}{question.metadata?.marks?.incorrect} | Correct Answer:{" "}{question.correctAnswer}
+                {question.metadata?.marks?.correct} {" "} | Negative Marks:{" "}{question.metadata?.marks?.incorrect} | Correct Answer:{" "}{question?.correctAnswer}
               </div>
             </div>
           ))}
