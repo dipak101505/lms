@@ -1,6 +1,6 @@
 // src/pages/EditExamPage.jsx
 import React, { useEffect, useState, useRef, useMemo } from "react";
-import { getExamQuestions, saveQuestion, deleteQuestion } from "../services/questionService";
+import { getExamQuestions, saveQuestion, deleteQuestion, getExamQuestionsByTopicAndDifficulty, saveExamQuestion, getTopics } from "../services/questionService";
 import { useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import Katex from "@matejmazur/react-katex";
@@ -83,6 +83,9 @@ const EditExamPage = () => {
   const [questions, setQuestions] = useState([]);
   const [currentQuestion, setCurrentQuestion] = useState(defaultQuestionSchema);
   const [selectedSection, setSelectedSection] = useState("all");
+  const [selectedDifficulty, setSelectedDifficulty] = useState("medium");
+  const [selectedTopic, setSelectedTopic] = useState("");
+  const [fileredQuestions, setFilteredQuestions] = useState([]);
   const examData = location.state?.examData;
 
   // Topic selection handler
@@ -94,6 +97,7 @@ const EditExamPage = () => {
         topic: topic
       }
     }));
+    setSelectedTopic(topic);
   };
 
   // Fetch questions from DynamoDB when examData is loaded
@@ -110,6 +114,23 @@ const EditExamPage = () => {
     };
     fetchQuestions();
   }, [examData?.id]);
+
+  // Filter questions by topic and difficulty
+  useEffect(() => {
+    const fetchFilteredQuestions = async () => {
+      try {
+        if (selectedTopic && selectedDifficulty) {
+          const fetched = await getExamQuestionsByTopicAndDifficulty(selectedTopic, selectedDifficulty);
+          setFilteredQuestions(fetched);
+        }
+      } catch (error) {
+        console.error("Error fetching filtered questions:", error);
+      }
+    };
+    fetchFilteredQuestions();
+  }, [selectedTopic, selectedDifficulty]);
+
+  console.log("filteredQuestions", fileredQuestions);
 
   // ...existing code...
   const handleAddContent = (type) => {
@@ -216,8 +237,8 @@ const EditExamPage = () => {
     useEffect(() => {
       const fetchTopics = async () => {
         try {
-          const topicsSnapshot = await getDocs(collection(db, 'topics'));
-          const topicsList = topicsSnapshot.docs.map(doc => doc.data().name);
+          const topicsList = await getTopics();
+          console.log("Topics:", topicsList);
           setTopics(topicsList);
         } catch (error) {
           console.error("Error fetching topics:", error);
@@ -545,14 +566,17 @@ const EditExamPage = () => {
             {/* Difficulty */}
             <select
               value={currentQuestion.metadata.difficulty}
-              onChange={(e) =>
+              onChange={(e) =>{
                 setCurrentQuestion({
                   ...currentQuestion,
                   metadata: {
                     ...currentQuestion.metadata,
                     difficulty: e.target.value,
                   },
-                })
+                });
+                setSelectedDifficulty(e.target.value);
+
+              }
               }
               className="p-2 border rounded"
               style={{ marginLeft: "10px" }}
@@ -667,7 +691,20 @@ const EditExamPage = () => {
           )
           .map((question, index) => (
             <div key={index} className="question-preview mb-4 p-4 border rounded">
-                <h3 onClick={() => handleDeleteQuestion(question.id)} style={{cursor:'pointer'}}>Question {index + 1}</h3>
+                <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={true}
+                  onChange={() => {
+                    setQuestions(prevQuestions => 
+                      prevQuestions.filter(q => q.id !== question.id)
+                    );
+                    saveExamQuestion(examData.id, question.id, "rm");
+                  }}
+                  className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                />
+                <span onClick={() => handleDeleteQuestion(question.id)} style={{cursor:'pointer', fontSize:'16px', fontWeight: 'bold'}}>Question {index + 1}</span>
+              </div>
               <div className="contents mb-4" onClick={() => setCurrentQuestion(question)}>
                 {question.contents?.map((content, i) => (
                   <ContentRenderer key={i} content={content} />
