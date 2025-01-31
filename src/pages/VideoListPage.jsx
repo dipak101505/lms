@@ -528,7 +528,6 @@ function VideoListPage() {
 
   const ExamTooltipContent = ({ exam, examResults }) => {
     const result = examResults.find(r => r.examId === exam.id);
-    console.log("result",result);
     return (
       <div className="tooltip-content">
         <div style={{ 
@@ -645,7 +644,6 @@ function VideoListPage() {
             {displayName}
           </Link>
         </div>
-        {exams.forEach(exam => {console.log("*******",formatVideoKey(exam.videoKey)); console.log("&&&&&&&&&",formatVideoKey(file.name));})}
         <div style={{ display: 'flex', alignItems: 'center' }}>
           {exams
             .filter(exam => formatVideoKey(file.name).includes(formatVideoKey(exam.videoKey)) )
@@ -659,6 +657,8 @@ function VideoListPage() {
                   <ExamTooltipContent exam={exam} examResults={examResults} />
                 </Tooltip>
                 <FaClipboardList 
+                  color={examResults.some(result => result.examId === exam.id) ? '#d1d5db' : '#f97316'}
+
                   className={`
                     text-xl
                     ${examResults.some(result => result.examId === exam.id) 

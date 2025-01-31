@@ -482,7 +482,7 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
                     ...prev,
                     status: newStatus
                   }));
-                  console.log('Status changed to:', newStatus);
+
                 }}
                 style={{ width: '20px', height: '20px' }}
               />

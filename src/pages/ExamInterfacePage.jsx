@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { collection, getDocs, getDoc, doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
@@ -356,14 +356,12 @@ const fetchExamData = async (examId) => {
     
     // Transform DynamoDB response if needed
     const transformedQuestions = questions.map(question => ({
-      id: question.SK.split('#')[1], // Extract ID from SK
+      id: question.id, // Extract ID from SK
       question: question.contents,
       options: question.options,
       metadata: question.metadata,
       correctAnswer: question.correctAnswer
     }));
-    console.log('QuestionsBefore:', questions); // Debugging
-    console.log('Questions:', transformedQuestions); // Debugging
     // Combine exam data with questions
     return {
       id: examId,
@@ -458,6 +456,10 @@ function ExamInterfacePage() {
   const [showModal, setShowModal] = useState(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [answersObject, setAnswersObject] = useState({});
+  const frameRef = useRef();
+  const endTimeRef = useRef();
+  const submitButtonRef = useRef(null);
+
 
 // Add navigate hook
 const navigate = useNavigate();
@@ -500,7 +502,6 @@ const ModalButton = styled.button`
       try {
         const data = await fetchExamData(examId);
         setExamData(data);
-        console.log('Exam data loaded:', data); // Debugging
       } catch (err) {
         console.error('Error loading exam:', err);
       }
@@ -513,7 +514,6 @@ const ModalButton = styled.button`
     if (examData?.questions) {
       // Get unique sections from questions
       const uniqueSections = [...new Set(examData.questions.map(q => q.metadata.sectionName))];
-      console.log('Unique sections:', uniqueSections,examData.metadata); // For debuggin
       const topicsFromSections = uniqueSections.map(section => ({
         id: section,
         name: section
@@ -531,13 +531,39 @@ const ModalButton = styled.button`
     });
     
     setQuestionsBySection(questionMap);
-    console.log('Questions by section:', Object.fromEntries(questionMap)); // For debugging
   
       setSubjects(topicsFromSections);
       loadTopic(topicsFromSections[0].id);
-      setTimeLeft(examData.duration * 60);
+      // setTimeLeft(examData.duration * 60);
     }
   }, [examData]);
+
+  useEffect(() => {
+    // Set end time when exam starts examData?.duration ? examData.duration * 60 : 0
+    endTimeRef.current = Date.now() + (examData?.duration ? examData.duration * 60 * 1000:0);
+    
+    function tick() {
+      const remaining = Math.ceil((endTimeRef.current - Date.now()) / 1000);
+      
+      if (remaining <= 0) {
+        submitButtonRef.current?.click();
+        setTimeLeft(0);
+        return;
+      }
+  
+      setTimeLeft(remaining);
+      frameRef.current = requestAnimationFrame(tick);
+    }
+  
+    frameRef.current = requestAnimationFrame(tick);
+  
+    // Save to localStorage on each tick
+    localStorage.setItem('examEndTime', endTimeRef.current.toString());
+    
+    return () => {
+      cancelAnimationFrame(frameRef.current);
+    };
+  }, [examData?.duration]);
 
   useEffect(() => {
     const enterFullscreen = async () => {
@@ -560,7 +586,47 @@ const ModalButton = styled.button`
     setTimeout(enterFullscreen, 1000);
   }, []);
   
-  // useEffect(() => {
+  useEffect(() => {
+    // Prevent page reload
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = '';
+      return '';
+    };
+  
+    // Prevent keyboard shortcuts
+    const handleKeyDown = (e) => {
+      if (
+        // Reload: Ctrl+R, Command+R, F5
+        (e.key === 'r' && (e.ctrlKey || e.metaKey)) ||
+        e.key === 'F5' ||
+        // Forward/Back: Alt+Left/Right, Command+Left/Right
+        ((e.altKey || e.metaKey) && ['ArrowLeft', 'ArrowRight'].includes(e.key))
+      ) {
+        e.preventDefault();
+        return false;
+      }
+    };
+  
+    // Block right click
+    const handleContextMenu = (e) => {
+      e.preventDefault();
+    };
+  
+    // Add event listeners
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('contextmenu', handleContextMenu);
+  
+    // Cleanup
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('contextmenu', handleContextMenu);
+    };
+  }, []);
+
+  // const startTimer = (duration) => {
   //   let time = examData?.duration ? examData.duration * 60 : 0;
     
   //   const timer = setInterval(() => {
@@ -578,27 +644,7 @@ const ModalButton = styled.button`
   //   }, 1000);
   
   //   return () => clearInterval(timer);
-  // }, [examData?.duration]);
-
-  const startTimer = (duration) => {
-    let time = examData?.duration ? examData.duration * 60 : 0;
-    
-    const timer = setInterval(() => {
-      if (typeof time !== 'number' || isNaN(time)) {
-        time = examData?.duration ? examData.duration * 60 : 0;
-      }
-  
-      if (time >= 0) {
-        if (time % 60 === 0 || time < 60) {
-          setTimeLeft(time);
-        }
-        time--;
-      }
-      console.log('Time left:', time); // Debugging
-    }, 1000);
-  
-    return () => clearInterval(timer);
-  };
+  // };
   
   const loadTopic = async (topicId) => {
     setCurrentTopic(topicId);
@@ -704,6 +750,7 @@ useEffect(() => {
       const answersObject = {};
       const marksObject = {};
   
+      console.log('Selected answers:', selectedAnswers);
       // Process each section
       selectedAnswers.forEach((sectionAnswers, section) => {
         // Convert answers Map to object
@@ -719,8 +766,6 @@ useEffect(() => {
             .find(q => q.id === questionId);
             
           if (question) {
-            console.log('Question:', question); // Debugging
-            console.log('Answer:', answer); // Debugging
             if (question.correctAnswer.toLowerCase().trim() === answer.toLowerCase().trim()) {
               positiveMarks += question.metadata?.marks?.correct || 0;
             } else {
@@ -876,8 +921,7 @@ useEffect(() => {
 
 
 const ContentRenderer = ({ content }) => {
-  console.log(content); // Debugging
-  console.log(content.value); // Debugging
+
   switch (content.type) {
     case CONTENT_TYPES.TEXT:
       return <span className="text-content">{content.value}</span>;
@@ -936,7 +980,7 @@ const enterFullscreen = async () => {
             onClick={async () => {
               await enterFullscreen();
               setExamStarted(true);
-              startTimer(examData.duration);
+              // startTimer(examData.duration);
             }}
           >
             Start Exam
@@ -1018,7 +1062,6 @@ const enterFullscreen = async () => {
                     {questionsBySection.get(currentTopic)[currentSlide].question?.map((content, i) => (
                       <ContentRenderer key={i} content={content} />
                     ))}
-                    {console.log("questionsBySection",questionsBySection.get(currentTopic)[currentSlide])}
                   </div>
 
                   <div style={{
@@ -1033,18 +1076,18 @@ const enterFullscreen = async () => {
                     const questionId = questionsBySection.get(currentTopic)[currentSlide].id;
                     const currentValue = ['A', 'B', 'C', 'D'][optIndex];
                     const selectedValue = selectedAnswers.get(currentTopic)?.get(questionId);
-                    
                     return (
                       <div key={optIndex} style={{ display: 'block', marginBottom: '10px' }}>
                         <input 
                           type="radio" 
                           name={`question${currentSlide + 1}`} // Unique name per question
                           value={currentValue}
-                          checked={selectedValue === currentValue}
+                          checked={
+                            selectedValue === currentValue
+                          }
                           onChange={(e) => {
                             if (e.target.checked) {
                               markAnswered(currentSlide);
-                              console.log('Selected answer:', selectedAnswers);
                               setSelectedAnswers(prev => {
                                 const newAnswers = new Map(prev);
                                 if (!newAnswers.has(currentTopic)) {
@@ -1185,7 +1228,11 @@ const enterFullscreen = async () => {
               borderTop: '1px solid #c3c3c1' 
             }}>
               <Button style={{ width: '50%' }}
-              onClick={handleSubmit}
+              ref={submitButtonRef}
+              onClick={()=>{
+                console.log(selectedAnswers);
+                handleSubmit();
+              }}
               >Submit</Button>
             </div>
           </Sidebar>

@@ -82,9 +82,6 @@ function StudentManagementPage() {
     const matchesCentre = selectedCentre ? student.centres.map(centre => centre.replace(/\s+/g, '')).includes(normalizedCentre) : true;
     return matchesName && matchesBatch && matchesCentre;
   });
-  console.log(selectedCentre);
-  console.log(students);
-
 
   const handleDelete = async (studentId) => {
     if (window.confirm('Are you sure you want to delete this student?')) {

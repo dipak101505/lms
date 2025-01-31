@@ -77,28 +77,59 @@ export const ensureExamTablesExist = async () => {
   }
 };
 
+const cleanListOfMaps = (list) => {
+  if (!Array.isArray(list)) return [];
+  return list.map(item => {
+    if (typeof item === 'object') {
+      return Object.fromEntries(
+        Object.entries(item)
+          .filter(([_, value]) => value !== undefined)
+      );
+    }
+    return item;
+  });
+};
+
 export const saveQuestion = async (examId, question) => {
-  // Ensure tables exist
   await ensureExamTablesExist();
 
-  // Save question to ExamQuestions table
-  const questionParams = {
+  // Clean and transform lists
+  const cleanQuestion = {
+    ...question,
+    contents: cleanListOfMaps(question.contents || []),
+    options: (question.options || []).map(option => ({
+      ...option,
+      contents: cleanListOfMaps(option.contents || [])
+    })),
+    solutionContent: cleanListOfMaps(question.solutionContent || []),
+    metadata: {
+      ...question.metadata,
+      topic: question.metadata.topic || '',
+      difficulty: question.metadata.difficulty || 'medium',
+      marks: question.metadata.marks || { correct: 4, incorrect: -1 }
+    }
+  };
+
+  const command = new PutCommand({
     TableName: "ExamQuestions",
     Item: {
       PK: `QUESTION#${question.id}`,
       SK: " ",
-      ...question,
-      GSI1PK: `TOPIC#${question.metadata.topic}`,
+      ...cleanQuestion,
+      GSI1PK: `TOPIC#${cleanQuestion.metadata.topic}`,
       GSI1SK: `QUESTION#${question.id}`,
-      GSI2PK: `DIFFICULTY#${question.metadata.difficulty}`,
+      GSI2PK: `DIFFICULTY#${cleanQuestion.metadata.difficulty}`,
       GSI2SK: `QUESTION#${question.id}`
     }
-  };
-  await dynamoDB.send(new PutCommand(questionParams));
+  });
 
-  // Save question to ExamQuestions table
-  await saveExamQuestion(examId, question, "add");
-
+  try {
+    await dynamoDB.send(command);
+    await saveExamQuestion(examId, cleanQuestion, "add");
+  } catch (error) {
+    console.error("Error in saveQuestion:", error);
+    throw error;
+  }
 };
 
 const updateQuestionsList = (existingQuestions, question, status) => {
@@ -149,8 +180,8 @@ export const saveExamQuestion = async (examId,question, status) => {
   };
   
   await dynamoDB.send(new PutCommand(examParams));
-
-  await addTopic(question.metadata.topic);
+  if(status === "add") 
+    await addOrUpdateTopic(question.metadata.topic);
 };
 
 export const getExamQuestions = async (examId) => {
@@ -194,17 +225,38 @@ export const ensureTopicsTable = async () => {
         new CreateTableCommand({
           TableName: "Topics",
           AttributeDefinitions: [
-            { AttributeName: "PK", AttributeType: "S" }
+            { AttributeName: "PK", AttributeType: "S" },
+            { AttributeName: "topicName", AttributeType: "S" },
+            { AttributeName: "createdAt", AttributeType: "S" }
           ],
           KeySchema: [
-            { AttributeName: "PK", KeyType: "HASH" }
+            { AttributeName: "PK", KeyType: "HASH" },
+            { AttributeName: "createdAt", KeyType: "RANGE" }
           ],
-          BillingMode: "PAY_PER_REQUEST"
+          GlobalSecondaryIndexes: [
+            {
+              IndexName: "TopicNameIndex",
+              KeySchema: [
+                { AttributeName: "topicName", KeyType: "HASH" }
+              ],
+              Projection: {
+                ProjectionType: "ALL"
+              },
+              ProvisionedThroughput: {
+                ReadCapacityUnits: 5,
+                WriteCapacityUnits: 5
+              }
+            }
+          ],
+          ProvisionedThroughput: {
+            ReadCapacityUnits: 5,
+            WriteCapacityUnits: 5
+          }
         })
       );
-      
-      // Wait for table to be active
-      await waitForTableExists("Topics");
+    } else {
+      console.error("Error creating Topics table:", error);
+      throw error;
     }
   }
 };
@@ -221,18 +273,42 @@ export const getTopics = async () => {
     const response = await dynamoDB.send(new ScanCommand(params));
     
     if (!response.Items || response.Items.length === 0) {
-      const defaultTopics = ["Mathematics", "Physics", "Chemistry"];
-      await Promise.all(defaultTopics.map(topic => addTopic(topic)));
-      return defaultTopics.map(topic => ({
-        topicName: topic,
-        questionCount: 0,
-        createdAt: new Date().toISOString()
-      }));
+      return [];
     }
     
     return response.Items;
   } catch (error) {
     console.error("Error fetching topics:", error);
+    throw error;
+  }
+};
+
+const addOrUpdateTopic = async (topicName) => {
+  try {
+    const existingTopics = await getTopics();
+    const existingTopic = existingTopics.find(t => t.topicName === topicName);
+
+    if (existingTopic) {
+      const params = {
+        TableName: "Topics",
+        Key: {
+          PK: `TOPIC#${topicName}`,
+          createdAt: existingTopic.createdAt
+        },
+        UpdateExpression: "SET questionCount = if_not_exists(questionCount, :start) + :inc",
+        ExpressionAttributeValues: {
+          ":inc": 1,
+          ":start": 0
+        },
+        ReturnValues: "ALL_NEW"
+      };
+      
+      return await ddbClient.send(new UpdateCommand(params));
+    } else {
+      return await addTopic(topicName);
+    }
+  } catch (error) {
+    console.error("Error in addOrUpdateTopic:", error);
     throw error;
   }
 };

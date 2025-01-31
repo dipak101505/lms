@@ -188,7 +188,6 @@ function SignupPage() {
       const userCredential = await signup(formData.email, formData.password);     
       // Create student document with pending status
       const timestamp = new Date();
-      console.log(formData);
       const studentData = {
         uid: userCredential.user.uid,
         name: formData.name,

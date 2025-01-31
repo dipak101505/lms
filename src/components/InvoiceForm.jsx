@@ -32,10 +32,8 @@ function InvoiceForm({ students }) {
 
         // Extract unique loginIds from receipts
         let uniqueLoginIds = [...new Set(receiptsList.map(receipt => receipt.loginId))];
-        console.log(uniqueLoginIds);
         //filter out email domain
         uniqueLoginIds = uniqueLoginIds.map(loginId => loginId.split('@')[0]);
-        console.log(uniqueLoginIds);
         setLoginIds(uniqueLoginIds);
         if(isFranchise)
           setSelectedLoginId((user.email.split('@')[0]));

@@ -1,5 +1,5 @@
 // src/pages/EditExamPage.jsx
-import React, { useEffect, useState, useRef, useMemo } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { getExamQuestions, saveQuestion, deleteQuestion, getExamQuestionsByTopicAndDifficulty, saveExamQuestion, getTopics } from "../services/questionService";
 import { useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
@@ -29,7 +29,7 @@ const Container = styled.div`
 `;
 
 const EditorSection = styled.div`
-  width: 50%;
+  width: 40%;
   padding: 20px;
   border-right: 1px solid #e2e8f0;
   overflow-y: auto;
@@ -39,6 +39,12 @@ const PreviewSection = styled.div`
   width: 50%;
   padding: 20px;
   overflow-y: auto;
+
+  .solution-preview {
+    margin-top: 2px;
+    padding: 5px;
+    border-top: 2px solid #e2e8f0;
+  }
 `;
 
 const defaultQuestionSchema = {
@@ -46,6 +52,7 @@ const defaultQuestionSchema = {
   type: QUESTION_TYPES.MCQ,
   options: [],
   correctAnswer: "",
+  solutionContent: [],
   metadata: {
     section: "",
     topic: "",
@@ -87,6 +94,23 @@ const EditExamPage = () => {
   const [selectedTopic, setSelectedTopic] = useState("");
   const [fileredQuestions, setFilteredQuestions] = useState([]);
   const examData = location.state?.examData;
+  const [topics, setTopics] = useState([]);
+  const [expandedSolutionId, setExpandedSolutionId] = useState(null);
+
+    const fetchTopics = useCallback(async () => {
+      try {
+        const topicsList = await getTopics();
+        setTopics(topicsList.map((topic) => topic.topicName));
+      } catch (error) {
+        console.error("Error fetching topics:", error);
+      }
+    }, []); 
+    
+    useEffect(() => {
+      if (topics?.length === 0) {
+        fetchTopics();
+      }
+    }, []);
 
   // Topic selection handler
   const handleTopicSelect = (topic) => {
@@ -129,8 +153,6 @@ const EditExamPage = () => {
     };
     fetchFilteredQuestions();
   }, [selectedTopic, selectedDifficulty]);
-
-  console.log("filteredQuestions", fileredQuestions);
 
   // ...existing code...
   const handleAddContent = (type) => {
@@ -192,10 +214,8 @@ const EditExamPage = () => {
         id: questionId,
       };
 
-      console.log("Saving question:", questionWithId);
-      console.log("Exam ID:", examData.id);
-
       // Save to DynamoDB
+      console.log("Saving question:", questionWithId);
       await saveQuestion(examData.id, questionWithId);
 
       // Update local state
@@ -231,28 +251,9 @@ const EditExamPage = () => {
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const inputRef = useRef(null);
     const dropdownRef = useRef(null);
-    const [topics, setTopics] = useState([]);
-
-// Add after other useEffects
-    useEffect(() => {
-      const fetchTopics = async () => {
-        try {
-          const topicsList = await getTopics();
-          console.log("Topics:", topicsList);
-          setTopics(topicsList);
-        } catch (error) {
-          console.error("Error fetching topics:", error);
-        }
-      };
-
-      fetchTopics();
-    }, []);
   
-    const filteredTopics = useMemo(() => 
-      topics.filter(topic => 
-        topic.toLowerCase().includes(inputValue.toLowerCase())
-      ),
-      [inputValue]
+    const filteredTopics = topics.filter((topic) => 
+      topic.toLowerCase().includes(inputValue.toLowerCase())
     );
 
     // Add click outside handler
@@ -293,7 +294,7 @@ const EditExamPage = () => {
           }}
           placeholder="Search or select topic..."
           style={{
-            width: '100%',
+            width: '40%',
             padding: '8px',
             borderRadius: '4px',
             border: '1px solid #ccc'
@@ -337,156 +338,17 @@ const EditExamPage = () => {
     );
   };
 
-  console.log("questions", questions);
+  const toggleSolution = (questionId) => {
+    console.log('Toggling solution for question:', questionId);
+    setExpandedSolutionId(expandedSolutionId === questionId ? null : questionId);
+  };
+
   return (
     <Container>
       <EditorSection>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="content-controls">
-            <h3>Question Content</h3>
-            <div className="flex gap-2">
-              {Object.entries(CONTENT_TYPES)?.map(([key, value]) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => handleAddContent(value)}
-                  className="flex-1 px-3 py-1 border rounded bg-orange-500 text-white hover:bg-orange-600"
-                  style={{
-                    width: "20%",
-                    textAlign: "center",
-                    cursor: "pointer",
-                    marginRight: "10px",
-                    marginBottom: "10px",
-                    backgroundColor: "#ffa600",
-                  }}
-                >
-                  Add {key}
-                </button>
-              ))}
-            </div>
 
-            {currentQuestion.contents?.map((content, index) => (
-              <div key={index} className="mt-2">
-                {content.type === CONTENT_TYPES.IMAGE ? (
-                  <div>
-                    <input
-                      type="text"
-                      value={content.value}
-                      onChange={(e) =>
-                        handleContentChange(index, e.target.value)
-                      }
-                      placeholder="Image URL"
-                      className="w-full p-2 border rounded"
-                    />
-                    <div className="flex gap-2 mt-1">
-                      <input
-                        type="number"
-                        value={content.dimensions.width}
-                        onChange={(e) =>
-                          handleContentChange(index, content.value, {
-                            ...content.dimensions,
-                            width: Number(e.target.value),
-                          })
-                        }
-                        placeholder="Width"
-                        className="w-24 p-2 border rounded"
-                      />
-                      <input
-                        type="number"
-                        value={content.dimensions.height}
-                        onChange={(e) =>
-                          handleContentChange(index, content.value, {
-                            ...content.dimensions,
-                            height: Number(e.target.value),
-                          })
-                        }
-                        placeholder="Height"
-                        className="w-24 p-2 border rounded"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <textarea
-                    value={content.value}
-                    onChange={(e) => handleContentChange(index, e.target.value)}
-                    className="w-full p-2 border rounded"
-                    rows="3"
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div className="options-section">
-            <h3>Options</h3>
-            <button
-              type="button"
-              onClick={handleAddOption}
-              className="px-3 py-1 border rounded"
-              style={{
-                cursor: "pointer",
-                marginBottom: "10px",
-                width: "80%",
-                backgroundColor: "#ffa600",
-              }}
-            >
-              Add Option
-            </button>
-
-            {currentQuestion.options?.map((option, optIndex) => (
-              <div key={optIndex} className="mt-2 p-2 border rounded">
-                <div className="flex gap-2">
-                  {Object.entries(CONTENT_TYPES)?.map(([key, value]) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => {
-                        const newOptions = [...currentQuestion.options];
-                        newOptions[optIndex].contents.push({
-                          type: value,
-                          value: "",
-                        });
-                        setCurrentQuestion({
-                          ...currentQuestion,
-                          options: newOptions,
-                        });
-                      }}
-                      className="px-2 py-1 border rounded text-sm"
-                      style={{
-                        width: "20%",
-                        textAlign: "center",
-                        cursor: "pointer",
-                        marginRight: "10px",
-                        marginBottom: "10px",
-                        backgroundColor: "#ffa600",
-                      }}
-                    >
-                      Add {key}
-                    </button>
-                  ))}
-                </div>
-
-                {option.contents?.map((content, contentIndex) => (
-                  <div key={contentIndex} className="mt-2">
-                    <textarea
-                      value={content.value}
-                      onChange={(e) =>
-                        handleOptionContentChange(
-                          optIndex,
-                          contentIndex,
-                          e.target.value,
-                        )
-                      }
-                      className="w-full p-2 border rounded"
-                      rows="2"
-                    />
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-
-          <div className="metadata-section">
+        <div className="metadata-section">
             <h3>Metadata</h3>
             <div className="grid grid-cols-2 gap-4">
               <select
@@ -647,6 +509,284 @@ const EditExamPage = () => {
             
           </div>
 
+          <div className="content-controls">
+            <h3>Question Content</h3>
+            <div className="flex gap-2">
+              {Object.entries(CONTENT_TYPES)?.map(([key, value]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => handleAddContent(value)}
+                  className="flex-1 px-3 py-1 border rounded bg-orange-500 text-white hover:bg-orange-600"
+                  style={{
+                    width: "20%",
+                    textAlign: "center",
+                    cursor: "pointer",
+                    marginRight: "10px",
+                    marginBottom: "10px",
+                    backgroundColor: "#ffa600",
+                  }}
+                >
+                  Add {key}
+                </button>
+              ))}
+            </div>
+
+            {currentQuestion.contents?.map((content, index) => (
+              <div key={index} className="mt-2">
+                {content.type === CONTENT_TYPES.IMAGE ? (
+                  <div>
+                    <input
+                      type="text"
+                      value={content.value}
+                      onChange={(e) =>
+                        handleContentChange(index, e.target.value)
+                      }
+                      placeholder="Image URL"
+                      className="w-full p-2 border rounded"
+                    />
+                    <div className="flex gap-2 mt-1">
+                      <input
+                        type="number"
+                        value={content.dimensions.width}
+                        onChange={(e) =>
+                          handleContentChange(index, content.value, {
+                            ...content.dimensions,
+                            width: Number(e.target.value),
+                          })
+                        }
+                        placeholder="Width"
+                        className="w-24 p-2 border rounded"
+                      />
+                      <input
+                        type="number"
+                        value={content.dimensions.height}
+                        onChange={(e) =>
+                          handleContentChange(index, content.value, {
+                            ...content.dimensions,
+                            height: Number(e.target.value),
+                          })
+                        }
+                        placeholder="Height"
+                        className="w-24 p-2 border rounded"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <textarea
+                    value={content.value}
+                    onChange={(e) => handleContentChange(index, e.target.value)}
+                    className="w-full p-2 border rounded"
+                    rows="3"
+                  />
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div className="solution-section mt-6 border-t pt-4">
+            
+              <span style={{fontSize:"14px", fontWeight:"bold"}}>
+                Solution 
+              </span>
+
+            
+            <div className={`
+              content-controls mt-2
+            `}>
+              <div className="flex gap-2">
+                {Object.entries(CONTENT_TYPES)?.map(([key, value]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => {
+                      setCurrentQuestion({
+                        ...currentQuestion,
+                        solutionContent: [
+                          ...(currentQuestion.solutionContent || []),
+                          {
+                            type: value,
+                            value: "",
+                            dimensions: value === CONTENT_TYPES.IMAGE ? { width: 300, height: 200 } : undefined
+                          },
+                        ],
+                      });
+                    }}
+                    className="px-2 py-1 border rounded text-sm"
+                    style={{
+                      width: "20%",
+                      textAlign: "center",
+                      cursor: "pointer",
+                      marginRight: "10px",
+                      marginBottom: "10px",
+                      backgroundColor: "#ffa600",
+                    }}
+                  >
+                    Add {key}
+                  </button>
+                ))}
+              </div>
+
+              {currentQuestion.solutionContent?.map((content, index) => (
+                <div key={index} className="mt-2">
+                  {content.type === CONTENT_TYPES.IMAGE ? (
+                    <div>
+                      <input
+                        type="text"
+                        value={content.value}
+                        onChange={(e) => {
+                          const newContents = [...currentQuestion.solutionContent];
+                          newContents[index] = {
+                            ...content,
+                            value: e.target.value,
+                          };
+                          setCurrentQuestion({
+                            ...currentQuestion,
+                            solutionContent: newContents,
+                          });
+                        }}
+                        placeholder="Image URL"
+                        className="w-full p-2 border rounded"
+                      />
+                      <div className="flex gap-2 mt-1">
+                        <input
+                          type="number"
+                          value={content.dimensions?.width || ''}
+                          onChange={(e) => {
+                            const newContents = [...currentQuestion.solutionContent];
+                            newContents[index] = {
+                              ...content,
+                              dimensions: {
+                                ...content.dimensions,
+                                width: Number(e.target.value),
+                              },
+                            };
+                            setCurrentQuestion({
+                              ...currentQuestion,
+                              solutionContent: newContents,
+                            });
+                          }}
+                          placeholder="Width"
+                          className="w-24 p-2 border rounded"
+                        />
+                        <input
+                          type="number"
+                          value={content.dimensions?.height || ''}
+                          onChange={(e) => {
+                            const newContents = [...currentQuestion.solutionContent];
+                            newContents[index] = {
+                              ...content,
+                              dimensions: {
+                                ...content.dimensions,
+                                height: Number(e.target.value),
+                              },
+                            };
+                            setCurrentQuestion({
+                              ...currentQuestion,
+                              solutionContent: newContents,
+                            });
+                          }}
+                          placeholder="Height"
+                          className="w-24 p-2 border rounded"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <textarea
+                      value={content.value}
+                      onChange={(e) => {
+                        const newContents = [...currentQuestion.solutionContent];
+                        newContents[index] = {
+                          ...content,
+                          value: e.target.value,
+                        };
+                        setCurrentQuestion({
+                          ...currentQuestion,
+                          solutionContent: newContents,
+                        });
+                      }}
+                      className="w-full p-2 border rounded"
+                      rows="3"
+                    />
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="options-section">
+            <span style={{fontSize:"14px",fontWeight:"bold"}}>Options</span>
+            <button
+              type="button"
+              onClick={handleAddOption}
+              className="px-3 py-1 border rounded"
+              style={{
+                cursor: "pointer",
+                width: "20%",
+                backgroundColor: "#ffa600",
+                marginBottom: "2vh",
+                marginLeft: "1vw", 
+                marginTop: "2vh"
+              }}
+            >
+              Add Option
+            </button>
+
+            {currentQuestion.options?.map((option, optIndex) => (
+              <div key={optIndex} className="mt-2 p-2 border rounded" style={{marginBottom: '1vh'}}>
+                <div className="flex gap-2">
+                  <span>{String.fromCharCode(65 + optIndex)}.</span>  
+                  {Object.entries(CONTENT_TYPES)?.map(([key, value]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => {
+                        const newOptions = [...currentQuestion.options];
+                        newOptions[optIndex].contents.push({
+                          type: value,
+                          value: "",
+                        });
+                        setCurrentQuestion({
+                          ...currentQuestion,
+                          options: newOptions,
+                        });
+                      }}
+                      className="px-2 py-1 border rounded text-sm"
+                      style={{
+                        width: "20%",
+                        textAlign: "center",
+                        cursor: "pointer",
+                        marginRight: "10px",
+                        marginBottom: "10px",
+                        backgroundColor: "#ffa600",
+                      }}
+                    >
+                      Add {key}
+                    </button>
+                  ))}
+                </div>
+
+                {option.contents?.map((content, contentIndex) => (
+                  <div key={contentIndex} className="mt-2">
+                    <textarea
+                      value={content.value}
+                      onChange={(e) =>
+                        handleOptionContentChange(
+                          optIndex,
+                          contentIndex,
+                          e.target.value,
+                        )
+                      }
+                      className="w-full p-2 border rounded"
+                      rows="2"
+                    />
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          
           <button
             type="submit"
             className="w-full py-2 bg-blue-500 text-white rounded"
@@ -691,7 +831,8 @@ const EditExamPage = () => {
           )
           .map((question, index) => (
             <div key={index} className="question-preview mb-4 p-4 border rounded">
-                <div className="flex items-center gap-2">
+              {/* Question content */}
+              <div className="flex items-center gap-2">
                 <input
                   type="checkbox"
                   checked={true}
@@ -703,17 +844,17 @@ const EditExamPage = () => {
                   }}
                   className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
                 />
-                <span onClick={() => handleDeleteQuestion(question.id)} style={{cursor:'pointer', fontSize:'16px', fontWeight: 'bold'}}>Question {index + 1}</span>
+                <span onClick={() => handleDeleteQuestion(question.id)} style={{cursor:'pointer', fontSize:'16px', fontWeight: 'bold', marginTop: '20vh'}}>Question {index + 1}</span>
               </div>
-              <div className="contents mb-4" onClick={() => setCurrentQuestion(question)}>
-                {question.contents?.map((content, i) => (
+              <div className="contents mb-4" onClick={() => setCurrentQuestion(question)}>                {question.contents?.map((content, i) => (
                   <ContentRenderer key={i} content={content} />
                 ))}
               </div>
 
-              <div className="options grid gap-2">
+              {/* Options */}
+              <div className="options-list mb-4">
                 {question.options?.map((option, optIndex) => (
-                  <div key={optIndex} className="option p-2 border rounded">
+                  <div key={optIndex} className="option mb-2">
                     {String.fromCharCode(65 + optIndex)}.{" "}
                     {option.contents?.map((content, i) => (
                       <ContentRenderer key={i} content={content} />
@@ -722,9 +863,37 @@ const EditExamPage = () => {
                 ))}
               </div>
 
+              {/* Solution Toggle */}
+              {question.solutionContent?.length > 0 && (
+                <div className="solution-container border-t mt-4">
+                  <div 
+                    onClick={() => toggleSolution(question.id)}
+                    className="flex items-center justify-between cursor-pointer hover:bg-gray-50 p-2 rounded"
+                  >
+                    <span className="text-sm font-semibold">
+                      Solution {expandedSolutionId === question.id ? '▼' : '▶'}
+                    </span>
+                  </div>
+                  
+                  <div className={`
+                    solution-content
+                    transition-all duration-300 ease-in-out
+                    ${expandedSolutionId === question.id 
+                      ? 'max-h-[500px] opacity-100' 
+                      : 'max-h-0 opacity-0 overflow-hidden'}
+                  `}>
+                    <div className="p-3 bg-gray-50 rounded mt-2">
+                      {expandedSolutionId === question.id && question.solutionContent?.map((content, i) => (
+                        <ContentRenderer key={i} content={content} />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="metadata mt-2 text-sm text-gray-600">
-Topic:{" "}{question.metadata?.topic} | Marks:{" "}
-                {question.metadata?.marks?.correct} {" "} | Negative Marks:{" "}{question.metadata?.marks?.incorrect} | Correct Answer:{" "}{question?.correctAnswer}
+              Topic:{" "}{question.metadata?.topic} | Marks:{" "}
+                              {question.metadata?.marks?.correct} {" "} | Negative Marks:{" "}{question.metadata?.marks?.incorrect} | Correct Answer:{" "}{question?.correctAnswer}
               </div>
             </div>
           ))}

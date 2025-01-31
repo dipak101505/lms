@@ -58,7 +58,6 @@ function UploadPage() {
 
   useEffect(() => {
     const fetchTopics = async () => {
-      console.log('fetchTopics called with:', { batch: formData.batch, subject: formData.subject });
   
       if (formData.batch && formData.subject) {
         try {
