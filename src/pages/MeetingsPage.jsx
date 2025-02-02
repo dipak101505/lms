@@ -109,7 +109,7 @@ function MeetingsPage() {
   const canViewStream = () => {
     if (!studentData || !currentStreamData) return false;
 
-    const hasMatchingBatch = studentData.batch === currentStreamData.batch;
+    const hasMatchingBatch = studentData.batch.includes(currentStreamData.batch);
     const hasMatchingCentre = currentStreamData.centres.includes('All') || 
       studentData.centres.some(centre => currentStreamData.centres.includes(centre));
     const hasMatchingSubject = studentData.subjects?.includes(currentStreamData.subject);
