@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { collection, getDocs, addDoc, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, getDocs, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
+import { getExams, addExam, deleteExam } from '../services/questionService';
 
 function ExamPage() {
+  const location = useLocation();
+
   const [exams, setExams] = useState([]);
   const [loading, setLoading] = useState(true);
   const [batches, setBatches] = useState([]);
   const [subjects, setSubjects] = useState([]);
   const [selectedSections, setSelectedSections] = useState([]);
-  const [sections, setSections] = useState([]); // Will store available sections
 
   const [formData, setFormData] = useState({
     name: '',
@@ -19,7 +22,9 @@ function ExamPage() {
     date: '',
     time: '',
     duration: '',
-    totalMarks: ''
+    totalMarks: '',
+    videoKey: location.state?.videoKey || '' // Auto-populate from navigation state
+
   });
   const { user, isAdmin } = useAuth();
   const [applications, setApplications] = useState({});
@@ -35,18 +40,14 @@ function ExamPage() {
 
   const fetchExams = async () => {
     try {
-      const examSnapshot = await getDocs(collection(db, 'exams'));
-      const examList = examSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setExams(examList);
+      const examsData = await getExams();
+      setExams(examsData);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching exams:', error);
-      setLoading(false);
     }
   };
+
 
   const fetchBatchesAndSubjects = async () => {
     try {
@@ -91,12 +92,15 @@ function ExamPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await addDoc(collection(db, 'exams'), {
+      const examData = {
         ...formData,
         sections: selectedSections,
-        createdAt: new Date(),
+        createdAt: new Date().toISOString(),
         createdBy: user.email
-      });
+      };
+
+      const docRef = await addExam(examData);
+
       setFormData({
         name: '',
         subject: '',
@@ -115,7 +119,7 @@ function ExamPage() {
   const handleDelete = async (examId) => {
     if (window.confirm('Are you sure you want to delete this exam?')) {
       try {
-        await deleteDoc(doc(db, 'exams', examId));
+        await deleteExam(examId);
         fetchExams();
       } catch (error) {
         console.error('Error deleting exam:', error);
@@ -340,6 +344,23 @@ function ExamPage() {
                   />
                 </label>
               </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#4a5568' }}>
+                  Location
+                  <input
+                    type="text"
+                    value={formData.videoKey}
+                    onChange={(e) => setFormData({ ...formData, videoKey: e.target.value })}
+                    required
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '4px'
+                    }}
+                  />
+                </label>
+              </div>
             </div>
             <button
               type="submit"
@@ -409,8 +430,8 @@ function ExamPage() {
                       {exam.name}
                     </td>
                     <td style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>{exam.sections?.map(sectionId => 
-        subjects.find(s => s.id === sectionId)?.name
-      ).join(', ')}</td>
+                      subjects.find(s => s.id === sectionId)?.name
+                    ).join(', ')}</td>
                     <td style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>{exam.date}</td>
                     <td style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>{exam.time}</td>
                     <td style={{ padding: '12px', borderBottom: '1px solid #e2e8f0' }}>{exam.duration} mins</td>

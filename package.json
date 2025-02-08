@@ -3,7 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.733.0",
     "@aws-sdk/client-s3": "^3.691.0",
+    "@aws-sdk/lib-dynamodb": "^3.733.0",
     "@aws-sdk/lib-storage": "^3.693.0",
     "@aws-sdk/s3-request-presigner": "^3.691.0",
     "@craco/craco": "^7.1.0",
@@ -38,6 +40,7 @@
     "react-latex-next": "^3.0.0",
     "react-router-dom": "^6.28.0",
     "react-scripts": "5.0.1",
+    "react-tooltip": "^5.28.0",
     "react-twitch-embed": "^3.0.2",
     "stream-browserify": "^3.0.0",
     "styled-components": "^6.1.13",

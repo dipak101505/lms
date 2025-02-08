@@ -5,6 +5,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebase/config';
 import { getAuth } from 'firebase/auth';
 import { useAuth } from '../contexts/AuthContext';
+import { upsertStudent } from '../services/studentService';
 
 const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centres }) => {
 
@@ -33,6 +34,7 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
     amountPending: student.amountPending || 0,
     paymentType: student.paymentType || 'lumpsum',
     monthlyInstallment: student.monthlyInstallment || 0,
+    chatIds: student.chatIds || [],
   });
   const [status, setStatus] = useState('');
   const [imageFile, setImageFile] = useState(null);
@@ -206,6 +208,12 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
         ...formData,
         imageUrl: imageUrl || formData.imageUrl,
         updatedAt: new Date()
+      });
+
+      await upsertStudent({
+        ...formData,
+        imageUrl: imageUrl || formData.imageUrl,
+        updatedAt: new Date().toISOString()
       });
       
       // Update user authentication status if uid exists
@@ -503,7 +511,7 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
                     ...prev,
                     status: newStatus
                   }));
-                  console.log('Status changed to:', newStatus);
+
                 }}
                 style={{ width: '20px', height: '20px' }}
               />
@@ -554,7 +562,7 @@ const EditStudentForm = ({ student, onClose, onUpdate, batches, subjects, centre
               name="amountPending"
               value={formData.amountPending}
               onChange={handleInputChange}
-              min="0"
+              // min="0"
               style={{ width: '100%', padding: '8px' }}
               disabled={isFranchise && student.amountPending > 0}
             />

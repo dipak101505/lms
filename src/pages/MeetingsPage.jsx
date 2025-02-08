@@ -18,7 +18,6 @@ function MeetingsPage() {
   const [currentStreamData, setCurrentStreamData] = useState(null);
   const { user, logout } = useAuth();
   const navigate = useNavigate();
-  console.log(user);
   const [formData, setFormData] = useState({
     batch: '',
     subject: '',
@@ -108,13 +107,10 @@ function MeetingsPage() {
   // Function to check if student has access to stream
   const canViewStream = () => {
     if (!studentData || !currentStreamData) return false;
-
     const hasMatchingBatch = studentData.batch.includes(currentStreamData.batch);
     const hasMatchingCentre = currentStreamData.centres.includes('All') || 
       studentData.centres.some(centre => currentStreamData.centres.includes(centre));
     const hasMatchingSubject = studentData.subjects?.includes(currentStreamData.subject);
-    console.log(hasMatchingBatch, hasMatchingCentre, hasMatchingSubject);
-    console.log(studentData);
     return hasMatchingBatch && hasMatchingCentre && hasMatchingSubject;
   };
 

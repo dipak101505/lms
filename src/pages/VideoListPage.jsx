@@ -5,10 +5,14 @@ import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { AiFillFilePdf } from 'react-icons/ai';
 import { BsFillPlayCircleFill } from 'react-icons/bs';
-import { ref, uploadBytes, getDownloadURL, listAll, getMetadata, deleteObject } from 'firebase/storage';
+import { ref, listAll, getMetadata, deleteObject } from 'firebase/storage';
 import { storage } from '../firebase/config';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { FaClipboardList } from 'react-icons/fa';
+import { Tooltip } from 'react-tooltip'
+import { getUserExamResults } from '../services/questionService';
+import { getExams } from '../services/questionService';
 
 
 // Add this CSS animation
@@ -90,6 +94,8 @@ function VideoListPage() {
   const [students, setStudents] = useState([]);
   const [selectedBatch, setSelectedBatch] = useState('');
   const [selectedStudentEmail, setSelectedStudentEmail] = useState('');
+  const [exams, setExams] = useState([]);
+  const [examResults, setExamResults] = useState([]);
 
   const navigate = useNavigate();
 
@@ -131,6 +137,36 @@ function VideoListPage() {
     fetchStudents();
   }, [selectedBatch]);
 
+  // Fetch student data and exams on mount
+
+    useEffect(() => {
+
+      const fetchExamData = async () => {
+        try {
+          // Get exam results from DynamoDB
+          const results = await getUserExamResults(user.uid);
+          
+          // Transform DynamoDB response
+          const transformedResults = results.map(result => ({
+            examId: result.SK.replace('EXAM#', ''),
+            userId: result.userId,
+            answers: result.answers,
+            sections: result.sections,
+            statistics: result.statistics,
+            submittedAt: result.submittedAt,
+            status: result.status
+          }));
+      
+          setExamResults(transformedResults);
+        } catch (error) {
+          console.error('Error fetching exam results:', error);
+        }
+      };
+      if (user) {
+        fetchExamData();
+      }
+    }, [user]);
+
 
   const handleSave = async () => {
     if (isSaving || !selectedStudentEmail) return;
@@ -160,8 +196,12 @@ function VideoListPage() {
         const q = query(studentsRef, where('email', '==', user.email));
         const querySnapshot = await getDocs(q);
         
-        if (!querySnapshot.empty) {
-          const studentDoc = querySnapshot.docs[0];
+        if (querySnapshot.empty) {
+          setError('Student not found');
+          setLoading(false);
+          return;
+        }
+        const studentDoc = querySnapshot.docs[0];
           const data = studentDoc.data();
           setStudentData({
             id: studentDoc.id,
@@ -174,13 +214,30 @@ function VideoListPage() {
             setLoading(false);
             return;
           }
-        }
+        // Set student data
+      const studentInfo = {
+        id: studentDoc.id,
+        ...data
+      };
+      setStudentData(studentInfo);
+      // Then fetch exams for this student's batch
+      const examSnapshot = await getExams();
+      const examsData = examSnapshot.map(exam => ({
+        id: exam.id,
+        name: exam.name,
+        batch: exam.batch,
+        subject: exam.subject,
+        videoKey: exam.videoKey,
+        createdBy: exam.createdBy
+      }));
+      setExams(examsData.filter(exam => studentInfo.batch.includes(exam.batch)));
       } catch (err) {
         console.error('Error fetching student data:', err);
         setError('Failed to fetch student data');
       }
     };
 
+    
     fetchStudentData();
   }, [user, isAdmin]);
 
@@ -255,9 +312,10 @@ function VideoListPage() {
         
         if (!isAdmin && studentData) {
           allFiles = allFiles.filter(file => {
-            return studentData.batch?.includes(file.batch) && 
+            return studentData.batch.includes(file.batch) && 
                    studentData.subjects?.includes(file.subject);
           });
+          
         }
         
         setVideos(allFiles);
@@ -304,6 +362,12 @@ function VideoListPage() {
       console.error('Error deleting file:', err);
       alert('Failed to delete file: ' + err.message);
     }
+  };
+
+  const handleTest = async (videoKey) => {
+    navigate('/exams', {
+      state: { videoKey: videoKey }
+    });
   };
 
   // Organize videos into hierarchical structure based on user role
@@ -467,64 +531,106 @@ function VideoListPage() {
     });
   };
 
-  const FileItem = ({ file, isAdmin, handleDelete, user }) => {
-    const isPdf = file.type === 'pdf';
-    const displayName = file.subtopic || 'untitled';
-    // const requiresAccess = ra(file);
-    const requiresAccess = false; 
-
-    const handlePdfClick = (e) => {
-      e.preventDefault();
-      window.location.href = `/pdf/${encodeURIComponent(file.name)}`;
-    };
-
+  const ExamTooltipContent = ({ exam, examResults }) => {
+    const result = examResults.find(r => r.examId === exam.id);
     return (
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        padding: '8px',
-        margin: '4px 0',
-        backgroundColor: '#fff',
-        borderRadius: '4px',
-        boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-        cursor: requiresAccess && !isPdf ? 'not-allowed' : 'pointer',
-        opacity: requiresAccess && !isPdf ? 0.6 : 1,
-      }}>
-        {isAdmin && <input
-              type="checkbox"
-              checked={accessibleFiles?.has(file.name)}
-              onChange={(e) => handleCheckboxChange(file.name, e.target.checked)}
-              className="w-4 h-4 rounded border-gray-300"
-            />}
-        {isPdf ? (
-          <Link
-            to={`/pdf/${encodeURIComponent(file.name)}`}
-            onClick={handlePdfClick}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              color: '#4a5568',
-              textDecoration: 'none',
-              flex: 1
-            }}
-          >
-            <AiFillFilePdf style={{ color: '#e53e3e', marginRight: '8px', fontSize: '24px' }} />
-            <div>
-              <div style={{ fontWeight: '500' }}>{displayName}</div>
-              <div style={{ fontSize: '12px', color: '#718096' }}>
-                {file.size} MB • {new Date(file.lastModified).toLocaleDateString()}
+      <div className="tooltip-content">
+        <div style={{ 
+          fontWeight: 600, 
+          fontSize: '1.1rem',
+          marginBottom: '0.5rem'
+        }}>
+          {exam.name}
+        </div>
+        {result && (
+          <div className="text-xs">
+            {Object.entries(result.answers).map(([section, data]) => (
+              <div key={section} className="mt-1">
+                <div style={{ 
+                  textDecoration: 'underline',
+                  textUnderlineOffset: '2px',
+                  fontWeight: 500,
+                  color: '#f97316',
+                  paddingBottom: '2px',
+                  marginBottom: '4px'
+                }}>
+                  {section}
+                </div>
+                <div>Total Marks: {data.totalMarks}</div>
+                <div>Positive: {data.positiveMarks}</div>
+                <div>Negative: {data.negativeMarks}</div>
+                <div>Attempted: {data.attempted}</div>
+                <div>Correct: {data.correct}</div>
+                <div>Incorrect: {data.incorrect}</div>
+              </div>
+            ))}
+            <div className="mt-2 pt-2 border-t border-gray-200">
+              <div className="font-medium">Statistics</div>
+              <div>Time Spent: {Math.floor(result.statistics.timeSpent / 60)}m {result.statistics.timeSpent % 60}s</div>
+              <div>Questions Attempted: {result.statistics.questionsAttempted}</div>
+              <div>Marked for Review: {result.statistics.questionsMarkedForReview}</div>
+              <div className="text-gray-500 text-[10px] mt-1">
+                Submitted: {new Date(result.submittedAt).toLocaleString()}
               </div>
             </div>
-          </Link>
-        ) : (
-          <Link
-            to={`/play/${file.bunnyVideoId}`}
+          </div>
+        )}
+      </div>
+    );
+  };  
+
+  const formatVideoKey = (videoKey) => {
+    //remove '_' "/" and "." 
+    const nameWithoutTimestamp = videoKey?.replace(/[_/.-]/g, '');
+    return nameWithoutTimestamp;
+  };
+
+  const FileItem = ({ file, isAdmin, handleDelete, user }) => {
+    const isPdf = file.type === 'pdf';
+    const [isHovered, setIsHovered] = useState(false);
+    const displayName = file.subtopic || 'untitled';
+
+    return (
+      <div
+        style={{
+          padding: '10px',
+          marginTop: '5px',
+          backgroundColor: isHovered ? '#f8f9fa' : '#fff',
+          borderRadius: '4px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          boxShadow: isHovered ? '0 2px 4px rgba(0,0,0,0.1)' : '0 1px 3px rgba(0,0,0,0.1)',
+          transition: 'all 0.2s ease-in-out',
+          border: `1px solid ${isHovered ? '#e2e8f0' : 'transparent'}`
+        }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+          {isPdf ? (
+            <AiFillFilePdf size={24} color="#dc3545" style={{ marginRight: '10px' }} />
+          ) : (
+            <BsFillPlayCircleFill size={24} color="#FF9800" style={{ marginRight: '10px' }} />
+          )}
+          
+          <Link 
+            to={isPdf ? `/pdf/${encodeURIComponent(file.name)}` : `/play/${file.bunnyVideoId}`}
+            style={{
+              textDecoration: 'none',
+              width: '100%',
+              color: '#333',
+              display: 'flex',
+              alignItems: 'center'
+            }}
             onClick={async (e) => {
-              e.preventDefault();
-              if (requiresAccess) {
-                alert('This video is only accessible for 2 weeks after upload. To access it now, please contact A.Pandit .');
+              if (isPdf) {
+                e.preventDefault();
+                window.open(`/pdf/${encodeURIComponent(file.name)}`, '_blank');
                 return;
               }
+
+              e.preventDefault();
               const canView = await checkVideoViewLimit(file.name, user.email);
               if (!canView) {
                 alert('You have reached the maximum views for this video this week.');
@@ -539,40 +645,77 @@ function VideoListPage() {
 
               window.location.href = `/play/${file.bunnyVideoId}`;
             }}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              color: '#4a5568',
-              textDecoration: 'none',
-              flex: 1
-            }}
           >
-            <BsFillPlayCircleFill style={{ color: '#ffa600', marginRight: '8px', fontSize: '24px' }} />
-            <div>
-              <div style={{ fontWeight: '500' }}>{displayName}</div>
-              <div style={{ fontSize: '12px', color: '#718096' }}>
-                {file.size} MB • {new Date(file.lastModified).toLocaleDateString()}
-              </div>
-            </div>
+            {displayName}
           </Link>
-        )}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          {exams
+            .filter(exam => formatVideoKey(file.name).includes(formatVideoKey(exam.videoKey)) )
+            .sort((a, b) => new Date(a.date) > new Date(b.date))
+            .map(exam => (
+              <div key={exam.id}>
+                <Tooltip 
+                  anchorSelect={`.exam-icon-${exam.id.replace(/[^a-zA-Z0-9]/g, '-')}`} 
+                  place="top"
+                >
+                  <ExamTooltipContent exam={exam} examResults={examResults} />
+                </Tooltip>
+                <FaClipboardList 
+                  color={examResults.some(result => result.examId === exam.id) ? '#d1d5db' : '#f97316'}
+
+                  className={`
+                    text-xl
+                    ${examResults.some(result => result.examId === exam.id) 
+                      ? 'text-gray-400' 
+                      : 'text-gray-600 hover:text-orange-500 cursor-pointer'}
+                    exam-icon-${exam.id.replace(/[^a-zA-Z0-9]/g, '-')}
+                  `}
+                  onClick={() => {
+                    if (!examResults.some(result => result.examId === exam.id)) {
+                      navigate(`/exam-interface/${exam?.id}`);
+                    }
+                  }}
+                />
+              </div>
+            ))}
+        </div>
 
         {isAdmin && (
-          <button
-            onClick={() => handleDelete(file)}
-            style={{
-              padding: '4px 8px',
-              backgroundColor: '#fff',
-              border: '1px solid #e53e3e',
-              borderRadius: '4px',
-              color: '#e53e3e',
-              cursor: 'pointer',
-              marginLeft: '8px',
-              width: '60px'
-            }}
-          >
-            Delete
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ 
+              fontSize: '12px', 
+              color: isHovered ? '#4a5568' : '#666'
+            }}>
+              {file.size} MB | {new Date(file.lastModified).toLocaleString()}
+            </div>
+            <button
+              onClick={() => handleTest(file.name)}
+              style={{
+                padding: '6px',
+                backgroundColor: '#ffa600',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              Add Test
+            </button>
+            <button
+              onClick={() => handleDelete(file)}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: isHovered ? '#c82333' : '#dc3545',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              Delete
+            </button>
+          </div>
         )}
       </div>
     );
