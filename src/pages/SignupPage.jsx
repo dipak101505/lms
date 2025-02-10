@@ -466,7 +466,7 @@ function SignupPage() {
               >
                 <option value="">Select Batch</option>
                 {batches.map(batch => (
-                  <option key={batch.id} value={batch.name}>{batch.name}</option>
+                  !(batch.name === "Chemistry full syllabus (ra)") && <option key={batch.id} value={batch.name}>{batch.name}</option>
                 ))}
               </select>
             </div>
