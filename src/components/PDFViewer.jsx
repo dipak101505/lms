@@ -61,7 +61,7 @@ function PDFViewer() {
   return (
     <div style={{ width: '100%', height: '100vh' }}>
       <iframe
-        src={pdfUrl}
+        src={`${pdfUrl}#toolbar=0`}
         style={{
           width: '100%',
           height: '100%',
