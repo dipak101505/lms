@@ -6,6 +6,11 @@ import {
 } from "@aws-sdk/client-dynamodb";
 
   
+
+const videoCacheTableName = 'video_cache'; // Consistent naming (snake_case)
+const videoCachePartitionKey = 'global';
+
+
 export const ensureStudentTableExists = async () => {
     try {
       await ddbClient.send(new DescribeTableCommand({ TableName: "Students" }));
@@ -113,3 +118,107 @@ export const ensureStudentTableExists = async () => {
     const response = await dynamoDB.send(new QueryCommand(params));
     return response.Items || [];
   };
+
+  
+export const ensureVideoCacheTableExists = async () => { // Consistent naming
+  try {
+    await ddbClient.send(new DescribeTableCommand({ TableName: videoCacheTableName })); // Use ddbClient
+    console.log("Video cache table exists.");
+    return true;
+  } catch (error) {
+    if (error.name === "ResourceNotFoundException") {
+      console.log("Video cache table does not exist. Creating...");
+      try {
+        const createParams = {
+          TableName: videoCacheTableName,
+          KeySchema: [
+            { AttributeName: 'partitionKey', KeyType: 'HASH' }
+          ],
+          AttributeDefinitions: [
+            { AttributeName: 'partitionKey', AttributeType: 'S' }
+          ],
+          ProvisionedThroughput: {
+            ReadCapacityUnits: 5,  // Adjust as needed
+            WriteCapacityUnits: 5   // Adjust as needed
+          }
+        };
+        const command = new CreateTableCommand(createParams);
+        await ddbClient.send(command); // Use ddbClient.send
+        console.log("Video cache table created successfully!");
+
+        // Wait for the table to be active
+        let tableActive = false;
+        while (!tableActive) {
+          try {
+            const describeTableResponse = await ddbClient.send(new DescribeTableCommand({ TableName: videoCacheTableName }));
+            tableActive = describeTableResponse.Table.TableStatus === "ACTIVE";
+            if (!tableActive) {
+              console.log("Waiting for table to become active...");
+              await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+            }
+          } catch (describeError) {
+            console.error("Error describing table:", describeError);
+            return false;
+          }
+        }
+        console.log("Video cache table is now active.");
+        return true;
+      } catch (createErr) {
+        console.error("Error creating video cache table:", createErr);
+        return false;
+      }
+    } else {
+      console.error("Error describing video cache table:", error);
+      return false;
+    }
+  }
+};
+
+export const storeVideoFiles = async (videoFiles) => {
+  const tableExists = await ensureVideoCacheTableExists();
+  if (!tableExists) return;
+
+  const params = {
+    TableName: videoCacheTableName, // Consistent table name
+    Item: {
+      partitionKey: videoCachePartitionKey, // Consistent partition key
+      videoFiles: videoFiles
+    }
+  };
+
+  try {
+    console.log('Storing video files...');
+    console.log(params);
+    await dynamoDB.send(new PutCommand(params)); // Use PutCommand
+    console.log('Video files stored successfully!');
+  } catch (error) {
+    console.error('Error storing video files:', error);
+  }
+};
+
+export const retrieveVideoFiles = async () => {
+  const tableExists = await ensureVideoCacheTableExists();
+  if (!tableExists) return null;
+
+  const params = {
+    TableName: videoCacheTableName, // Consistent table name
+    Key: {
+      partitionKey: videoCachePartitionKey // Consistent partition key
+    }
+  };
+
+  try {
+    const data = await dynamoDB.send(new GetCommand(params)); // Use GetCommand
+
+    if (data.Item && data.Item.videoFiles) {
+      console.log('Video files retrieved successfully.');
+      return data.Item.videoFiles;
+    } else {
+      console.log('No video files found.');
+      return null;
+    }
+  } catch (error) {
+    console.error('Error retrieving video files:', error);
+    return null;
+  }
+};

@@ -13,6 +13,7 @@ import { FaClipboardList } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip'
 import { getUserExamResults } from '../services/questionService';
 import { getExams } from '../services/questionService';
+import { storeVideoFiles, retrieveVideoFiles } from '../services/studentService';
 
 
 // Add this CSS animation
@@ -252,7 +253,11 @@ function VideoListPage() {
       }
 
       try {
-        // 1. Fetch videos from Bunny Stream
+
+        let videoFiles = [];
+        debugger;
+        if (isAdmin) {
+          // Fetch videos from Bunny Stream
         const videoResponse = await fetch(
           `https://video.bunnycdn.com/library/359657/videos?page=1&itemsPerPage=1000&orderBy=date`, 
           {
@@ -268,7 +273,7 @@ function VideoListPage() {
         
         // Process video files
         const videoData = await videoResponse.json();
-        let videoFiles = videoData.items?.map(item => {
+        videoFiles = videoData.items?.map(item => {
           // Split title by underscores to get components
           const [batch, subject, topic, subtopic] = item.title.split('_');
           return {
@@ -277,12 +282,20 @@ function VideoListPage() {
             subject,
             topic,
             subtopic,
-            lastModified: new Date(item.dateUploaded),
+            lastModified: (item.dateUploaded),
             size: (item.storageSize / 1024 / 1024).toFixed(2),
             type: 'video',
             bunnyVideoId: item.guid
           };
         }) || [];
+
+        // Store video files in DynamoDB
+        await storeVideoFiles(videoFiles);
+
+        } else {
+          //retrieve it from the cache
+          videoFiles = await retrieveVideoFiles();
+        }
 
         // 2. Fetch PDFs from Firebase Storage
         const pdfListRef = ref(storage, 'pdfs');
