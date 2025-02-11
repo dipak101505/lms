@@ -66,6 +66,7 @@ export const ensureStudentTableExists = async () => {
         school: studentData.school || '',
         amountPending: studentData.amountPending || 0,
         paymentType: studentData.paymentType || 'lumpsum',
+        payments: studentData.payments || [],
         monthlyInstallment: studentData.monthlyInstallment || 0,
         updatedAt: new Date().toISOString(),
         chatIds: studentData.chatIds || [],

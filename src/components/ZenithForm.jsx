@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { db } from '../firebase/config';
 import { collection, addDoc, getDocs, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
+import { upsertStudent } from '../services/studentService';
 
 
 const ZenithForm = ({ studentData, onClose }) => {
@@ -202,6 +203,10 @@ const ZenithForm = ({ studentData, onClose }) => {
             payments: [...payments, newPayment],
             amountPending: studentDoc.data().amountPending - calculateTotal()
           });
+
+          // update payment info in dynamo db as well via student service
+          await upsertStudent({  ...studentData, payments: [...payments, newPayment] });
+
         }
       }
 
