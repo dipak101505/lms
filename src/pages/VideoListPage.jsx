@@ -13,7 +13,7 @@ import { FaClipboardList } from 'react-icons/fa';
 import { Tooltip } from 'react-tooltip'
 import { getUserExamResults } from '../services/questionService';
 import { getExams } from '../services/questionService';
-import { storeVideoFiles, retrieveVideoFiles } from '../services/studentService';
+import { storeVideoFiles, retrieveVideoFiles, getStudentByEmail, getAllStudents } from '../services/studentService';
 
 
 // Add this CSS animation
@@ -112,12 +112,17 @@ function VideoListPage() {
     const fetchBatches = async () => {
       const studentsRef = collection(db, 'students');
       const snapshot = await getDocs(studentsRef);
+      let ddbGetAllStudents = await getAllStudents();
+      console.log(ddbGetAllStudents);
+      console.log(snapshot.docs);
       const uniqueBatches = [...new Set(
-        snapshot.docs.map(doc => doc.data().batch)
+        ddbGetAllStudents.map(doc => doc.batch)
       )].filter(Boolean);
+      console.log("uniqueBatches");
+      console.log(uniqueBatches);
       setBatches(uniqueBatches);
     };
-    fetchBatches();
+    // fetchBatches();
   }, []);
 
   // Fetch students when batch changes
@@ -135,7 +140,7 @@ function VideoListPage() {
       studentsList.sort((a, b) => a.name.localeCompare(b.name));
       setStudents(studentsList);
     };
-    fetchStudents();
+    // fetchStudents();
   }, [selectedBatch]);
 
   // Fetch student data and exams on mount
@@ -193,32 +198,37 @@ function VideoListPage() {
       if (!user || isAdmin) return;
       
       try {
-        const studentsRef = collection(db, 'students');
-        const q = query(studentsRef, where('email', '==', user.email));
-        const querySnapshot = await getDocs(q);
+        // const studentsRef = collection(db, 'students');
+        // const q = query(studentsRef, where('email', '==', user.email));
+        // const querySnapshot = await getDocs(q);
         
-        if (querySnapshot.empty) {
+        
+        let ddbstudents= await getStudentByEmail(user.email);
+        if (ddbstudents.empty) {
           setError('Student not found');
           setLoading(false);
           return;
         }
-        const studentDoc = querySnapshot.docs[0];
-          const data = studentDoc.data();
+
+        // const studentDoc = querySnapshot.docs[0];
+        //   const data = studentDoc.data();
           setStudentData({
-            id: studentDoc.id,
-            ...data
+            id: ddbstudents?.SK || 1,
+            ...ddbstudents
           });
 
+          // console.log(data);
+
           // If student is inactive, set error
-          if (data.status !== 'active') {
+          if (ddbstudents.status !== 'active') {
             setError('Your account is currently inactive. Please contact administrator.');
             setLoading(false);
             return;
           }
         // Set student data
       const studentInfo = {
-        id: studentDoc.id,
-        ...data
+        id: ddbstudents?.SK || 1,
+        ...ddbstudents
       };
       setStudentData(studentInfo);
       // Then fetch exams for this student's batch
@@ -255,7 +265,6 @@ function VideoListPage() {
       try {
 
         let videoFiles = [];
-        debugger;
         if (isAdmin) {
           // Fetch videos from Bunny Stream
         const videoResponse = await fetch(
@@ -806,7 +815,7 @@ function VideoListPage() {
         overflow: 'hidden'
       }}>
           <iframe
-          src="https://app.vignamlabs.com/Zenith%20Institute/INST-5ccefcb8-1294-4adc-9975-a18b3c0b7c8d/teach1/all%20simulations/simulation/reactionmodelsimulation/SIM-9a23b45d-e5b6-4b6f-8547-12f1e3ab2568"
+          src="https://staging.vignamlabs.com/openSimulation/SIM-f631d706-f147-4a65-a830-17bf99f175ab?def_token=INST-435fb01b-4964-4638-b38c-1fec7c63a2eb"
           width="100%"
           height="100%"
           frameBorder="0"
