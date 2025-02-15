@@ -5,6 +5,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import styled from "styled-components";
 import Katex from "@matejmazur/react-katex";
 import "katex/dist/katex.min.css";
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
+import { storage } from '../firebase/config';
 
 const CONTENT_TYPES = {
   TEXT: "text",
@@ -208,6 +210,37 @@ const EditExamPage = () => {
     });
   };
 
+  const handleImageUpload = async (file, index) => {
+    try {
+      // Create storage reference
+      const storageRef = ref(storage, `exam-questions/${file.name}_${Date.now()}`);
+      
+      // Upload file
+      const uploadTask = uploadBytesResumable(storageRef, file);
+      
+      // Monitor upload
+      uploadTask.on('state_changed',
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          console.log('Upload progress:', progress);
+        },
+        (error) => {
+          console.error('Error uploading image:', error);
+        },
+        async () => {
+          // Get download URL
+          const downloadURL = await getDownloadURL(storageRef);
+          
+          // Update question content with URL
+          handleContentChange(index, downloadURL);
+        }
+      );
+  
+    } catch (error) {
+      console.error('Error handling image upload:', error);
+    }
+  };
+
   const handleAddOption = () => {
     setCurrentQuestion((prev) => ({
       ...prev,
@@ -228,6 +261,59 @@ const EditExamPage = () => {
     });
   };
 
+  const createQuestion = async (ans) => {
+    debugger;
+    if(ans.length === 0 || ans.length %5) 
+      return;
+
+    for(let i = 0; i < ans.length; i+=5) {
+      const questionId = Date.now().toString();
+      const questionObject = {
+      id: questionId,
+      type: "single",
+      contents: [
+        {
+          type: "latex",
+          value: ans[i],
+          dimensions: 0
+        }
+      ],
+      options: [
+        {
+          contents: [{ type: "latex", value: ans[i+1] }]
+        },
+        {
+          contents: [{ type: "latex", value: ans[i+2] }]
+        },
+        {
+          contents: [{ type: "latex", value: ans[i+3] }]
+        },
+        {
+          contents: [{ type: "latex", value: ans[i+4] }]
+        }
+      ],
+      correctAnswer: "b",
+      metadata: {
+        difficulty: "medium",
+        marks: {
+          correct: 4,
+          incorrect: -1
+        },
+        section: "",
+        topic: "Free Body Diagram"
+      },
+      solutionContent: []
+    };
+    await saveQuestion(examData.id, questionObject);
+    // Set as current question
+    setQuestions((prev) => [
+      ...prev.filter((q) => q.id !== questionId),
+      questionObject,
+    ]);
+
+  }
+  };
+
   // Example: Save or update question
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -242,7 +328,7 @@ const EditExamPage = () => {
       // Save to DynamoDB
       console.log("Saving question:", questionWithId);
       await saveQuestion(examData.id, questionWithId);
-
+      console.log(questionWithId);
       // Update local state
       setQuestions((prev) => [
         ...prev.filter((q) => q.id !== questionId),
@@ -267,7 +353,7 @@ const EditExamPage = () => {
   };
 
   // Get unique sections from questions
-  const uniqueSections = [...new Set(questions?.map(q => q.metadata?.section))].filter(Boolean);
+  const uniqueSections = [...new Set(questions?.map(q => q?.metadata?.section))].filter(Boolean);
 
 
   const TopicAutocomplete = ({ onSelect, initialValue }) => {
@@ -530,6 +616,35 @@ const EditExamPage = () => {
               style={{ marginTop: "10px" }}
             />
 
+            <input
+              type="text"
+              // value={currentQuestion?.correctAnswer}
+              onChange={(e) =>
+              {
+                let ans = e.target.value;
+                console.log(ans);
+                ans = ans.replace(/Q\.\s*\d+\s*/, '');
+                console.log(ans);
+                const ansArray = ans.split('\\\\'); // Only split on double backslashes
+                console.log(ansArray);
+                ans = ansArray.map((element) => {
+                  return element.replace(/\/\//g, '/');
+                });
+                ans.forEach((element) => {
+                  console.log(element);
+                });
+                // drop the last element of the array if it's empty
+                if(ans[ans.length - 1] === '') {
+                  ans.pop();
+                }
+                createQuestion(ans);
+              }
+              }
+              placeholder="Question"
+              className="p-2 border rounded"
+              style={{ marginTop: "10px" }}
+            />
+
             </div>
             
           </div>
@@ -561,6 +676,19 @@ const EditExamPage = () => {
               <div key={index} className="mt-2">
                 {content.type === CONTENT_TYPES.IMAGE ? (
                   <div>
+
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          handleImageUpload(file, index);
+                        }
+                      }}
+                      className="w-full p-2 border rounded"
+                    />
+
                     <input
                       type="text"
                       value={content.value}
@@ -760,7 +888,7 @@ const EditExamPage = () => {
             {currentQuestion.options?.map((option, optIndex) => (
               <div key={optIndex} className="mt-2 p-2 border rounded" style={{marginBottom: '1vh'}}>
                 <div className="flex gap-2">
-                  <span>{String.fromCharCode(65 + optIndex)}.</span>  
+                  {/* <span>{String.fromCharCode(65 + optIndex)}.</span>   */}
                   {Object.entries(CONTENT_TYPES)?.map(([key, value]) => (
                     <button
                       key={key}
@@ -871,18 +999,18 @@ const EditExamPage = () => {
                 />
                 <span onClick={() => handleDeleteQuestion(question.id)} style={{cursor:'pointer', fontSize:'16px', fontWeight: 'bold', marginTop: '20vh'}}>Question {index + 1}</span>
               </div>
-              <div className="contents mb-4" onClick={() => setCurrentQuestion(question)}>                {question.contents?.map((content, i) => (
+              <div className="contents mb-4" onClick={() => setCurrentQuestion(question)}>                {question?.contents?.map((content, i) => (
                   <ContentRenderer key={i} content={content} />
                 ))}
               </div>
 
               {/* Options */}
               <div className="options-list mb-4">
-                {question.options?.map((option, optIndex) => (
+                {question?.options?.map((option, optIndex) => (
                   <div className="flex items-start gap-2">
-                  <span className="option-label mt-1">
+                  {/* <span className="option-label mt-1">
                     {String.fromCharCode(65 + optIndex)}.
-                  </span>
+                  </span> */}
                   <div className="option-content flex-1">
                     {option.contents?.map((content, i) => (
                       <ContentRenderer 
