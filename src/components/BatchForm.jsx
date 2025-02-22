@@ -17,7 +17,7 @@ const BatchForm = ({ batches, setBatches }) => {
     setStatus('submitting');
 
     // Format the name before saving
-    const formattedName = formData.name.charAt(0).toUpperCase() + formData.name.slice(1).toLowerCase();
+    const formattedName = formData.name;
 
     // Check if batch name already exists
     const batchExists = batches.some(
