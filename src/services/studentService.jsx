@@ -223,3 +223,106 @@ export const retrieveVideoFiles = async () => {
     return null;
   }
 };
+
+export const getStudentStatusCount = async () => {
+  const students = await getAllStudents();
+  return students.reduce((acc, student) => {
+    const status = student.status || 'inactive';
+    acc[status] = (acc[status] || 0) + 1;
+    return acc;
+  }, {});
+};
+
+export const updateStudentStatus = async (email, status) => {
+  const params = {
+    TableName: "Students",
+    Key: {
+      PK: "STUDENT#ALL",
+      SK: `STUDENT#${email}`
+    },
+    UpdateExpression: "SET #status = :status, updatedAt = :updatedAt",
+    ExpressionAttributeNames: {
+      "#status": "status"
+    },
+    ExpressionAttributeValues: {
+      ":status": status,
+      ":updatedAt": new Date().toISOString()
+    },
+    ReturnValues: "ALL_NEW"
+  };
+
+  const response = await dynamoDB.send(new UpdateCommand(params));
+  return response.Attributes;
+};
+
+export const getActiveStudents = async () => {
+  const students = await getAllStudents();
+  return students.filter(student => student.status === 'active');
+};
+
+export const getStudentsByFilter = async (filters) => {
+  const students = await getAllStudents();
+  return students.filter(student => {
+    return (!filters.batch || student.batch === filters.batch) &&
+           (!filters.centre || student.centres.includes(filters.centre)) &&
+           (!filters.status || student.status === filters.status);
+  });
+};
+
+export const updateStudentAttendance = async (email, attendanceRecord) => {
+  const { subject, topic, status } = attendanceRecord;
+  const timestamp = new Date().toISOString();
+  
+  // First, get the current attendance data
+  const getParams = {
+    TableName: "Students",
+    Key: {
+      PK: "STUDENT#ALL",
+      SK: `STUDENT#${email}`
+    },
+    ProjectionExpression: "attendance"
+  };
+
+  try {
+    const currentData = await dynamoDB.send(new GetCommand(getParams));
+    const currentAttendance = currentData.Item?.attendance || {};
+    
+    // Prepare the new attendance record
+    const newRecord = {
+      status,
+      timestamp,
+      date: new Date().toLocaleDateString()
+    };
+
+    // Build the updated attendance structure
+    const updatedAttendance = {
+      ...currentAttendance,
+      [subject]: {
+        ...currentAttendance[subject],
+        [topic]: [
+          ...(currentAttendance[subject]?.[topic] || []),
+          newRecord
+        ]
+      }
+    };
+
+    // Update with the combined data
+    const updateParams = {
+      TableName: "Students",
+      Key: {
+        PK: "STUDENT#ALL",
+        SK: `STUDENT#${email}`
+      },
+      UpdateExpression: "SET attendance = :attendance",
+      ExpressionAttributeValues: {
+        ":attendance": updatedAttendance
+      }
+    };
+
+    await dynamoDB.send(new UpdateCommand(updateParams));
+    
+  } catch (error) {
+    console.error(`Error updating attendance for student ${email}:`, error);
+    throw error;
+  }
+};

@@ -241,6 +241,27 @@ const EditExamPage = () => {
     }
   };
 
+  const processQuestionInput = (input) => {
+    // Replace any question number pattern (Q. n or Q.n)
+    let processedText = input.replace(/Q\.\s*\d+\s*/g, '');
+    
+    console.log('After removing Q numbers:', processedText);
+    
+    // Split on double backslashes
+    const parts = processedText.split('\\\\');
+    
+    // Clean up each part
+    const cleanedParts = parts.map(part => {
+      return part.trim()
+        .replace(/\/\//g, '/') // Replace double forward slashes
+        .replace(/^\s*/, '')   // Remove leading whitespace
+        .replace(/\s*$/, '');  // Remove trailing whitespace
+    });
+  
+    // Remove empty elements
+    return cleanedParts.filter(part => part.length > 0);
+  };
+
   const handleAddOption = () => {
     setCurrentQuestion((prev) => ({
       ...prev,
@@ -328,7 +349,7 @@ const EditExamPage = () => {
       // Save to DynamoDB
       console.log("Saving question:", questionWithId);
       await saveQuestion(examData.id, questionWithId);
-      console.log(questionWithId);
+
       // Update local state
       setQuestions((prev) => [
         ...prev.filter((q) => q.id !== questionId),
@@ -621,22 +642,8 @@ const EditExamPage = () => {
               // value={currentQuestion?.correctAnswer}
               onChange={(e) =>
               {
-                let ans = e.target.value;
-                console.log(ans);
-                ans = ans.replace(/Q\.\s*\d+\s*/, '');
-                console.log(ans);
-                const ansArray = ans.split('\\\\'); // Only split on double backslashes
-                console.log(ansArray);
-                ans = ansArray.map((element) => {
-                  return element.replace(/\/\//g, '/');
-                });
-                ans.forEach((element) => {
-                  console.log(element);
-                });
-                // drop the last element of the array if it's empty
-                if(ans[ans.length - 1] === '') {
-                  ans.pop();
-                }
+                const ans = processQuestionInput(e.target.value);
+                console.log('Processed parts:', ans);
                 createQuestion(ans);
               }
               }

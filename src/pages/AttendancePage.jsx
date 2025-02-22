@@ -6,6 +6,7 @@ import { db } from '../firebase/config';
 import { useAuth } from '../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCamera } from '@fortawesome/free-solid-svg-icons';
+import { getAllStudents, updateStudentAttendance } from '../services/studentService';
 
 function AttendancePage() {
   const { user, isFranchise } = useAuth();
@@ -23,6 +24,8 @@ function AttendancePage() {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [capturedPhotos, setCapturedPhotos] = useState({});
   const [nameFilter, setNameFilter] = useState(''); // State for name filter
+  const [topic, setTopic] = useState('');
+
 
   const capitalizeFirstLetter = (string) => {
     return string.charAt(0).toUpperCase() + string.slice(1).toLowerCase();
@@ -32,9 +35,9 @@ function AttendancePage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [batchesSnap, studentsSnap, subjectsSnap, centresSnap] = await Promise.all([
+        const [batchesSnap, studentsData, subjectsSnap, centresSnap] = await Promise.all([
           getDocs(collection(db, 'batches')),
-          getDocs(collection(db, 'students')),
+          getAllStudents(), // Fetch students
           getDocs(collection(db, 'subjects')),
           getDocs(collection(db, 'centres')) // Fetch centres
         ]);
@@ -43,10 +46,8 @@ function AttendancePage() {
           id: doc.id,
           ...doc.data()
         })));
-        setStudents(studentsSnap.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        })));
+        setStudents(studentsData);
+        console.log(studentsData);
         setSubjects(subjectsSnap.docs.map(doc => ({
           id: doc.id,
           ...doc.data()
@@ -65,6 +66,7 @@ function AttendancePage() {
     };
 
     fetchData();
+    console.log(students);
   }, []);
 
   const startCamera = async (studentId) => {
@@ -159,6 +161,22 @@ function AttendancePage() {
         capturedPhotos: capturedPhotos || [],
       };
       await addDoc(collection(db, 'attendance'), attendanceData);
+
+      const eligibleStudents = students.filter(student => student.batch.includes(selectedBatch) && 
+                                                          student.status === 'active' &&
+                                                          student.subjects?.includes(selectedSubject) &&
+                                                          student.centres?.map(centre => centre.replace(/\s+/g, '')).includes(selectedCentre));
+      const absentPromises = eligibleStudents
+      .filter(student => !attendanceList.includes(student.SK))
+      .map(student => 
+        updateStudentAttendance(student.email, {
+          subject: selectedSubject,
+          topic: topic,
+          status: 'absent'
+        })
+      );
+      await Promise.all([...absentPromises]);
+
       alert('Attendance submitted successfully!');
       setAttendanceList([]);
       setCapturedPhotos({});
@@ -262,6 +280,21 @@ function AttendancePage() {
             onChange={(e) => setNameFilter(e.target.value)} 
           />
         </label>
+
+        <input
+          type="text"
+          value={topic}
+          onChange={(e) => setTopic(e.target.value)}
+          placeholder="Enter Topic"
+          style={{
+            padding: '8px 12px',
+            borderRadius: '4px',
+            border: '1px solid #ddd',
+            marginLeft: '16px',
+            flex: 1,
+            fontSize: '16px'
+          }}
+        />
       </div>
 
       {selectedBatch && selectedSubject && (
@@ -304,8 +337,8 @@ function AttendancePage() {
                 }}>
                   <input
                     type="checkbox"
-                    checked={attendanceList.includes(student.id)}
-                    onChange={() => handleAttendanceToggle(student.id)}
+                    checked={attendanceList.includes(student.SK)}
+                    onChange={() => handleAttendanceToggle(student.SK)}
                   />
                   <div>
                     <div style={{ fontWeight: '500' }}>{student.name}</div>
