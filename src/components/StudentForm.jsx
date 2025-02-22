@@ -33,7 +33,10 @@ const StudentForm = ({ onStudentAdded, onClose, batches, subjects, centres }) =>
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     if (name === 'name') {
-      const formattedName = value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+      const formattedName = value
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
       setFormData(prev => ({ ...prev, [name]: formattedName }));
     } else {
       setFormData(prev => ({ ...prev, [name]: value }));
