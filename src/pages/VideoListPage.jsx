@@ -14,7 +14,7 @@ import { Tooltip } from 'react-tooltip'
 import { getUserExamResults } from '../services/questionService';
 import { getExams } from '../services/questionService';
 import { storeVideoFiles, retrieveVideoFiles, getStudentByEmail, getAllStudents } from '../services/studentService';
-
+import { simulationService } from '../services/simulationService';
 
 // Add this CSS animation
 const styles = `
@@ -97,6 +97,11 @@ function VideoListPage() {
   const [selectedStudentEmail, setSelectedStudentEmail] = useState('');
   const [exams, setExams] = useState([]);
   const [examResults, setExamResults] = useState([]);
+  const [simName, setSimName] = useState('');
+  const [simUrl, setSimUrl] = useState('');
+  const [topicSimulations, setTopicSimulations] = useState({});
+  const [iframeUrl, setIframeUrl] = useState("https://staging.vignamlabs.com/openSimulation/SIM-f631d706-f147-4a65-a830-17bf99f175ab?def_token=INST-435fb01b-4964-4638-b38c-1fec7c63a2eb");
+
 
   const navigate = useNavigate();
 
@@ -806,28 +811,7 @@ function VideoListPage() {
 
   return (
     <div style={{ padding: '20px' }}>
-      {isAdmin && <div style={{
-        width: '100%',
-        height: '800px',
-        margin: '20px 0',
-        border: '1px solid #e5e7eb',
-        borderRadius: '8px',
-        overflow: 'hidden'
-      }}>
-          <iframe
-          src="https://staging.vignamlabs.com/openSimulation/SIM-f631d706-f147-4a65-a830-17bf99f175ab?def_token=INST-435fb01b-4964-4638-b38c-1fec7c63a2eb"
-          width="100%"
-          height="100%"
-          frameBorder="0"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-          title="Vignam Labs Simulation"
-          onError={(e) => {
-            e.target.style.display = 'none';
-            e.target.parentElement.innerHTML = 'Failed to load simulation. Please check your internet connection or try again later.';
-          }}
-        />
-      </div>}
+
       <h1>Video Library</h1>
       {isAdmin && 
       <div className="flex flex-col md:flex-row gap-4 mb-6 p-4 bg-gray-50 rounded-lg shadow-sm">
@@ -893,6 +877,68 @@ function VideoListPage() {
           ))}
         </select>
       </div>
+
+      <div className="flex flex-col gap-2">
+        <label htmlFor="batch" className="text-sm font-medium text-gray-700">
+          Simulation URL
+        </label>
+        <input 
+          id="simulation"
+          type="text"
+          value={simUrl}
+          placeholder="Enter simulation URL"
+          onChange={(e) => setSimUrl(e.target.value)}
+          className="
+            w-64
+            px-3 py-2
+            bg-white
+            border border-gray-300
+            rounded-md
+            shadow-sm
+            focus:outline-none
+            focus:ring-2
+            focus:ring-blue-500
+            focus:border-blue-500
+            text-sm
+          "
+          style={{ 
+            height: '40px', 
+            marginLeft: '10px',
+            transition: 'all 0.2s ease'
+          }}
+        />
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <label htmlFor="batch" className="text-sm font-medium text-gray-700">
+          Simulation Name
+        </label>
+        <input 
+          id="simulation_name"
+          type="text"
+          value={simName}
+          placeholder="Enter simulation Name"
+          onChange={(e) => setSimName(e.target.value)}
+          className="
+            w-64
+            px-3 py-2
+            bg-white
+            border border-gray-300
+            rounded-md
+            shadow-sm
+            focus:outline-none
+            focus:ring-2
+            focus:ring-blue-500
+            focus:border-blue-500
+            text-sm
+          "
+          style={{ 
+            height: '40px', 
+            marginLeft: '10px',
+            transition: 'all 0.2s ease'
+          }}
+        />
+      </div>
     </div>}
 
       
@@ -927,7 +973,14 @@ function VideoListPage() {
                   {Object.entries(subjects).map(([subject, topics]) => (
                     <div key={subject} style={{ marginTop: '10px' }}>
                       <div 
-                        onClick={() => toggleSection(`${batch}/${subject}`)}
+                        onClick={() => {toggleSection(`${batch}/${subject}`);
+                        simulationService.getSimulationLinksBySubject(subject).then((res) => {
+                          setTopicSimulations(prevState => ({
+                            ...prevState,
+                            [subject]: res
+                          }));
+                        });
+                      }}
                         style={{
                           padding: '8px',
                           backgroundColor: '#fff',
@@ -966,7 +1019,129 @@ function VideoListPage() {
                                   display: 'inline-block',
                                   marginRight: '10px'
                                 }}>▶</span>
-                                {topic}
+                                <div style={{ 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  justifyContent: 'space-between',
+                                  width: '100%',
+                                  padding: '8px',
+                                  backgroundColor: '#f8f9fa',
+                                  borderRadius: '4px'
+                                }}>
+                                  <div style={{ 
+                                    fontSize: '14px',
+                                    fontWeight: '500',
+                                    color: '#4a5568',
+                                    flex: '1'
+                                  }}>
+                                    {topic}
+                                  </div>
+                                    {topicSimulations[subject]?.filter(sim => sim.SK.includes(topic)).map((sim) => (
+                                      sim.simulations?.map((simulation) => (
+                                        <div 
+                                          key={simulation.url} 
+                                          style={{ 
+                                            marginRight: '8px',
+                                            position: 'relative',
+                                            display: 'inline-block'
+                                          }}
+                                        >
+                                          <div data-tooltip-id={`sim-${sim.SK}-${simulation.url}`}>
+                                            <svg 
+                                              width="20" 
+                                              height="20" 
+                                              viewBox="0 0 24 24"
+                                              fill="#ffa600"
+                                              style={{ cursor: 'pointer' }}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setIframeUrl(simulation.url);
+                                                //scroll the view to iframe
+                                                document.getElementById('iframe').scrollIntoView({behavior: 'smooth'});
+                                              }}
+                                            >
+                                              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                                            </svg>
+                                          </div>
+                                          <Tooltip 
+                                            id={`sim-${sim.SK}-${simulation.url}`}
+                                            place="top"
+                                            className="tooltip"
+                                            content={simulation.name || "Simulation"}
+                                          />
+                                        </div>
+                                      ))
+                                    ))}
+                                  {<button
+                                    onClick={async (e) => {
+                                      e.stopPropagation(); // Prevent topic expansion when clicking button
+                                      // scroll to the top of the page
+                                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                                      if (simName && simUrl) {
+                                        try {
+                                          const result = await simulationService.addSimulationLink(subject, topic, {
+                                            name: simName,
+                                            url: simUrl
+                                          });
+                                          debugger;
+                                          if (result) {
+                                            toast.success(`Simulation "${simName}" added successfully!`);
+                                            setSimName('');
+                                            setSimUrl('');
+                                          } else {
+                                            toast.error(result.message);
+                                          }
+                                        } catch (error) {
+                                          console.error('Error adding simulation:', error);
+                                          toast.error('Failed to add simulation. Please try again.');
+                                        }
+                                      } else {
+                                        toast.error('Please enter both simulation name and URL');
+                                      }
+                                    }}
+                                    style={{
+                                      padding: '6px 12px',
+                                      backgroundColor: '#ffa600',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      cursor: 'pointer',
+                                      fontSize: '13px',
+                                      fontWeight: '500',
+                                      display: 'flex',
+                                      alignItems: 'center',
+                                      gap: '6px',
+                                      transition: 'all 0.2s ease',
+                                      boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)',
+                                      width: 'fit-content',  // Button will only be as wide as its content
+                                      minWidth: '140px',    // Minimum width to maintain consistency
+                                      marginLeft: '16px'
+                                    }}
+                                    onMouseEnter={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#f59e0b';
+                                      e.currentTarget.style.transform = 'translateY(-1px)';
+                                    }}
+                                    onMouseLeave={(e) => {
+                                      e.currentTarget.style.backgroundColor = '#ffa600';
+                                      e.currentTarget.style.transform = 'translateY(0)';
+                                    }}
+                                  >
+                                    <svg 
+                                      width="16" 
+                                      height="16" 
+                                      viewBox="0 0 24 24" 
+                                      fill="none" 
+                                      stroke="currentColor" 
+                                      strokeWidth="2"
+                                      strokeLinecap="round" 
+                                      strokeLinejoin="round"
+                                    >
+                                      <path d="M12 5v14M5 12h14"/>
+                                    </svg>
+                                    Add Simulation
+                                  </button>}
+                                </div>
+
                               </div>
                               
                               {expandedSections[`${batch}/${subject}/${topic}`] && (
@@ -997,7 +1172,14 @@ function VideoListPage() {
           Object.entries(videoStructure).map(([subject, topics]) => (
             <div key={subject} style={{ marginBottom: '20px' }}>
               <div 
-                onClick={() => toggleSection(subject)}
+                onClick={() => {toggleSection(subject);
+                  simulationService.getSimulationLinksBySubject(subject).then((res) => {
+                    setTopicSimulations(prevState => ({
+                      ...prevState,
+                      [subject]: res
+                    }));
+                  });
+                }}
                 style={{
                   padding: '10px',
                   backgroundColor: '#f8f9fa',
@@ -1020,40 +1202,96 @@ function VideoListPage() {
               {expandedSections[subject] && (
                 <div style={{ marginLeft: '20px' }}>
                   {Object.entries(topics).map(([topic, videos]) => (
-                    <div key={topic} style={{ marginTop: '10px' }}>
-                      <div 
-                        onClick={() => toggleSection(`${subject}/${topic}`)}
-                        style={{
-                          padding: '6px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center'
-                        }}
-                      >
-                        <span style={{ 
-                          transform: expandedSections[`${subject}/${topic}`] ? 'rotate(90deg)' : 'rotate(0deg)',
-                          transition: 'transform 0.3s',
-                          display: 'inline-block',
-                          marginRight: '10px'
-                        }}>▶</span>
-                        {topic}
-                      </div>
-                      
-                      {expandedSections[`${subject}/${topic}`] && (
-                        <div style={{ marginLeft: '30px' }}>
-                          {videos.map((video) => (
-                            <FileItem
-                              key={video.name}
-                              file={video}
-                              isAdmin={isAdmin}
-                              handleDelete={handleDelete}
-                              user={user}
-                            />
+                            <div key={topic} style={{ marginTop: '10px' }}>
+                              <div 
+                                onClick={() => toggleSection(`${subject}/${topic}`)}
+                                style={{
+                                  padding: '6px',
+                                  cursor: 'pointer',
+                                  display: 'flex',
+                                  alignItems: 'center'
+                                }}
+                              >
+                                <span style={{ 
+                                  transform: expandedSections[`${subject}/${topic}`] ? 'rotate(90deg)' : 'rotate(0deg)',
+                                  transition: 'transform 0.3s',
+                                  display: 'inline-block',
+                                  marginRight: '10px'
+                                }}>▶</span>
+                                <div style={{ 
+                                  display: 'flex', 
+                                  alignItems: 'center', 
+                                  justifyContent: 'space-between',
+                                  width: '100%',
+                                  padding: '8px',
+                                  backgroundColor: '#f8f9fa',
+                                  borderRadius: '4px'
+                                }}>
+                                  <div style={{ 
+                                    fontSize: '14px',
+                                    fontWeight: '500',
+                                    color: '#4a5568',
+                                    flex: '1'
+                                  }}>
+                                    {topic}
+                                  </div>
+                                    {topicSimulations[subject]?.filter(sim => sim.SK.includes(topic)).map((sim) => 
+                                      <div style={{marginRight: '40vw'}}>
+                                        {sim.simulations?.map((simulation) => (
+                                        <div 
+                                          key={simulation.url} 
+                                          style={{ 
+                                            marginRight: '5vw',
+                                            position: 'relative',
+                                            display: 'inline-block'
+                                          }}
+                                        >
+                                          <div data-tooltip-id={`sim-${sim.SK}-${simulation.url}`}>
+                                            <svg 
+                                              width="20" 
+                                              height="20" 
+                                              viewBox="0 0 24 24"
+                                              fill="#ffa600"
+                                              style={{ cursor: 'pointer' }}
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setIframeUrl(simulation.url);
+                                                //scroll the view to iframe
+                                                document.getElementById('iframe').scrollIntoView({behavior: 'smooth'});
+                                              }}
+                                            >
+                                              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                                            </svg>
+                                          </div>
+                                          <Tooltip 
+                                            id={`sim-${sim.SK}-${simulation.url}`}
+                                            place="top"
+                                            className="tooltip"
+                                            content={simulation.name || "Simulation"}
+                                          />
+                                        </div>
+                                      ))}
+                                    </div>
+                                    )}
+                                </div>
+
+                              </div>
+                              
+                              {expandedSections[`${subject}/${topic}`] && (
+                                <div style={{ marginLeft: '30px' }}>
+                                  {videos.map((video) => (
+                                    <FileItem
+                                      key={video.name}
+                                      file={video}
+                                      isAdmin={isAdmin}
+                                      handleDelete={handleDelete}
+                                      user={user}
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
                 </div>
               )}
             </div>
@@ -1095,6 +1333,29 @@ function VideoListPage() {
           toast.error('Failed to load calendar');
         }}
       /> */}
+      {<div style={{
+        width: '100%',
+        height: '800px',
+        margin: '20px 0',
+        border: '1px solid #e5e7eb',
+        borderRadius: '8px',
+        overflow: 'hidden',
+      }}>
+          <iframe
+          src= {iframeUrl}
+          width="100%"
+          height="100%"
+          frameBorder="0"
+          id='iframe'
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+          title="Vignam Labs Simulation"
+          onError={(e) => {
+            e.target.style.display = 'none';
+            e.target.parentElement.innerHTML = 'Failed to load simulation. Please check your internet connection or try again later.';
+          }}
+        />
+      </div>}
     </div>
   );
 }
