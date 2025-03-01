@@ -7,6 +7,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faCamera } from '@fortawesome/free-solid-svg-icons';
 import { getAllStudents, updateStudentAttendance } from '../services/studentService';
+import toast from 'react-hot-toast';
 
 function AttendancePage() {
   const { user, isFranchise } = useAuth();
@@ -176,13 +177,35 @@ function AttendancePage() {
         })
       );
       await Promise.all([...absentPromises]);
-
-      alert('Attendance submitted successfully!');
+      // Replace the existing toast.success line with:
+      toast.success('Attendance submitted successfully!', {
+        position: 'top-center',
+        duration: 3000,
+        style: {
+          background: '#10B981',
+          color: 'white',
+          padding: '16px',
+          borderRadius: '8px',
+        }
+      });
       setAttendanceList([]);
       setCapturedPhotos({});
+      setSelectedBatch('');
+      setSelectedSubject('');
+      setSelectedCentre('');
+      setTopic('');
     } catch (error) {
       console.error('Error submitting attendance:', error);
-      alert('Error submitting attendance');
+      toast.error('Error submitting attendance', {
+        position: 'top-center',
+        duration: 3000,
+        style: {
+          background: '#EF4444',
+          color: 'white',
+          padding: '16px',
+          borderRadius: '8px',
+        }
+      });    
     }
   };
   // Filter students based on name and centre

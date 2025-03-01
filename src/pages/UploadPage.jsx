@@ -8,6 +8,7 @@ import { db } from '../firebase/config';
 import { ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { ref, uploadBytes, getDownloadURL, listAll, getMetadata, uploadBytesResumable } from 'firebase/storage';
 import { storage } from '../firebase/config';
+import { getTopics, addTopic } from '../services/questionService';
 
 
 function UploadPage() {
@@ -29,6 +30,7 @@ function UploadPage() {
   const [fileError, setFileError] = useState('');
   const [uploadSpeed, setUploadSpeed] = useState(0);
   const [timeRemaining, setTimeRemaining] = useState(null);
+  const [topicSearch, setTopicSearch] = useState('');
   const uploadRef = useRef(null);
   const lastUploadedRef = useRef(0);
   const timeRef = useRef(Date.now());
@@ -61,32 +63,9 @@ function UploadPage() {
   
       if (formData.batch && formData.subject) {
         try {
-          // Fetch topics from BunnyNet Stream
-          const response = await fetch(
-            `https://video.bunnycdn.com/library/359657/videos?page=1&itemsPerPage=1000&orderBy=date`, 
-            {
-              headers: {
-                'AccessKey': 'a12e0bb1-1753-422b-8592a11c9c61-605b-46a8'
-              }
-            }
-          );
-  
-          if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-          }
-  
-          const data = await response.json();
-          const uniqueTopics = new Set();
-          
-          data.items.forEach(item => {
-            const parts = item.title.split('_');
-            if (parts.length >= 3) {
-              if(parts[0] === formData.batch && parts[1] === formData.subject)
-              uniqueTopics.add(parts[2]);
-            }
-          });
-  
-          setTopics(Array.from(uniqueTopics));
+          const topics = await getTopics();
+          console.log('Topics:', topics);
+          setTopics(topics.map(topic => topic.topicName));
         } catch (error) {
           console.error('Error fetching topics:', error);
         }
@@ -123,6 +102,10 @@ function UploadPage() {
     const remainingSeconds = Math.round(seconds % 60);
     return `${minutes}m ${remainingSeconds}s`;
   };
+
+  const filteredTopics = topics.filter(topic => 
+    topic.toLowerCase().includes(topicSearch.toLowerCase())
+  );
 
   const handleFileChange = (e) => {
     const selectedFile = e.target.files[0];
@@ -161,7 +144,6 @@ function UploadPage() {
   };
 
   const handleInputChange = (e) => {
-    debugger;
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -192,7 +174,8 @@ function UploadPage() {
       alert('Please fill all required fields');
       return;
     }
-
+    if(formData.topic === 'new')
+    await addTopic(effectiveTopic);
     try {
       setUploadStatus('uploading');
       setUploadProgress(0);
@@ -245,6 +228,7 @@ function UploadPage() {
         if (!createResponse.ok) throw new Error('Failed to create video');
         const { guid } = await createResponse.json();
 
+
         return new Promise((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           uploadRef.current = xhr;
@@ -274,6 +258,7 @@ function UploadPage() {
             if (xhr.status >= 200 && xhr.status < 300) {
               setUploadStatus('success');
               resolve();
+              window.location.reload();
             } else {
               setUploadStatus('error');
               reject(new Error(`Upload failed with status ${xhr.status}`));
@@ -453,51 +438,99 @@ function UploadPage() {
           </div>
 
           {/* Topic Selection */}
-          <div style={{ marginBottom: '12px' }}>
-            <label style={{
-              display: 'block',
-              marginBottom: '8px',
-              color: '#4a5568',
-              fontSize: '14px',
-              fontWeight: '500'
-            }}>
-              Topic *
-            </label>
-            <select
-              name="topic"
-              value={formData.topic}
-              onChange={handleInputChange}
-              required
+          <div style={{ marginBottom: '12px', position: 'relative' }}>
+          <label style={{
+            display: 'block',
+            marginBottom: '8px',
+            color: '#4a5568',
+            fontSize: '14px',
+            fontWeight: '500'
+          }}>
+            Topic *
+          </label>
+          <input
+            type="text"
+            value={topicSearch}
+            onChange={(e) => setTopicSearch(e.target.value)}
+            placeholder="Search or select topic"
+            style={{
+              width: '95%',
+              padding: '12px',
+              borderRadius: '8px',
+              border: '2px solid #e0e0e0',
+              backgroundColor: '#f8f9fa',
+              color: '#2d3748',
+              fontSize: '15px',
+              transition: 'all 0.2s ease',
+              outline: 'none',
+              marginBottom: '4px'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = '#ffa600';
+              e.target.style.backgroundColor = 'white';
+              e.target.style.boxShadow = '0 0 0 3px rgba(255, 166, 0, 0.1)';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = '#e0e0e0';
+              e.target.style.backgroundColor = '#f8f9fa';
+              e.target.style.boxShadow = 'none';
+            }}
+          />
+          <div style={{
+            maxHeight: '200px',
+            overflowY: 'auto',
+            border: '1px solid #e0e0e0',
+            borderRadius: '8px',
+            backgroundColor: 'white',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+            display: topicSearch ? 'block' : 'none'
+          }}>
+            {filteredTopics.map(topic => (
+              <div
+                key={topic}
+                onClick={() => {
+                  setFormData(prev => ({ ...prev, topic }));
+                  setTopicSearch(topic);
+                }}
+                style={{
+                  padding: '8px 12px',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.2s',
+                  backgroundColor: formData.topic === topic ? '#f7fafc' : 'white'
+                }}
+                onMouseEnter={(e) => {
+                  e.target.style.backgroundColor = '#f7fafc';
+                }}
+                onMouseLeave={(e) => {
+                  e.target.style.backgroundColor = formData.topic === topic ? '#f7fafc' : 'white';
+                }}
+              >
+                {topic}
+              </div>
+            ))}
+            <div
+              onClick={() => {
+                setFormData(prev => ({ ...prev, topic: 'new' }));
+                setTopicSearch('');
+              }}
               style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '8px',
-                border: '2px solid #e0e0e0',
-                backgroundColor: '#f8f9fa',
-                color: '#2d3748',
-                fontSize: '15px',
-                transition: 'all 0.2s ease',
-                outline: 'none',
-                cursor: 'pointer'
+                padding: '8px 12px',
+                cursor: 'pointer',
+                borderTop: '1px solid #e0e0e0',
+                color: '#ffa600',
+                transition: 'background-color 0.2s'
               }}
-              onFocus={(e) => {
-                e.target.style.borderColor = '#ffa600';
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = '#f7fafc';
+              }}
+              onMouseLeave={(e) => {
                 e.target.style.backgroundColor = 'white';
-                e.target.style.boxShadow = '0 0 0 3px rgba(255, 166, 0, 0.1)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = '#e0e0e0';
-                e.target.style.backgroundColor = '#f8f9fa';
-                e.target.style.boxShadow = 'none';
               }}
             >
-              <option value="">Select Topic</option>
-              {topics.map(topic => (
-                <option key={topic} value={topic}>{topic}</option>
-              ))}
-              <option value="new">+ Add New Topic</option>
-            </select>
+              + Add New Topic
+            </div>
           </div>
+        </div>
 
           {/* New Topic Input */}
           {formData.topic === 'new' && (
@@ -518,7 +551,7 @@ function UploadPage() {
                 onChange={handleInputChange}
                 required
                 style={{
-                  width: '100%',
+                  width: '95%',
                   padding: '12px',
                   borderRadius: '8px',
                   border: '2px solid #e0e0e0',

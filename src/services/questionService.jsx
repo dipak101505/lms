@@ -355,7 +355,12 @@ const addOrUpdateTopic = async (topicName) => {
 export const addTopic = async (topicName) => {
   try {
     await ensureTopicsTable();
-    
+    // check if topic already exists
+    const existingTopics = await getTopics();
+    if (existingTopics.some(t => t.topicName === topicName)) {
+      console.warn(`Topic ${topicName} already exists`);
+      return null;
+    }
     const params = {
       TableName: "Topics",
       Item: {
