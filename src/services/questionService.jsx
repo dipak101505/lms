@@ -6,6 +6,90 @@ import {
 } from "@aws-sdk/client-dynamodb";
 
 
+
+/**
+ * Question Service Module
+ * 
+ * Service Hierarchy:
+ * ├── Table Management
+ * │   ├── ensureExamTableExists
+ * │   ├── ensureExamTablesExist
+ * │   └── ensureTopicsTable
+ * │
+ * ├── Question Management
+ * │   ├── saveQuestion
+ * │   ├── getExamQuestions
+ * │   ├── getQuestionById
+ * │   ├── deleteQuestion
+ * │   └── Query Functions
+ * │       ├── getExamQuestionsByTopic
+ * │       ├── getExamQuestionsByDifficulty
+ * │       └── getExamQuestionsByTopicAndDifficulty
+ * │
+ * ├── Topic Management
+ * │   ├── getTopics
+ * │   ├── addTopic
+ * │   ├── addOrUpdateTopic
+ * │   └── incrementTopicQuestionCount
+ * │
+ * ├── Exam Management
+ * │   ├── addExam
+ * │   ├── getExams
+ * │   ├── getExam
+ * │   └── deleteExam
+ * │
+ * └── Result Management
+ *     ├── saveExamResult
+ *     ├── getUserExamResults
+ *     ├── getExamResults
+ *     └── getUserExamResult
+ */
+
+
+/**
+ * Question Service Module
+ * 
+ * Service Hierarchy:
+ * ├── Table Management
+ * │   ├── ensureExamTableExists
+ * │   ├── ensureExamTablesExist
+ * │   └── ensureTopicsTable
+ * │
+ * ├── Question Management
+ * │   ├── saveQuestion
+ * │   ├── getExamQuestions
+ * │   ├── getQuestionById
+ * │   ├── deleteQuestion
+ * │   └── Query Functions
+ * │       ├── getExamQuestionsByTopic
+ * │       ├── getExamQuestionsByDifficulty
+ * │       └── getExamQuestionsByTopicAndDifficulty
+ * │
+ * ├── Topic Management
+ * │   ├── getTopics
+ * │   ├── addTopic
+ * │   ├── addOrUpdateTopic
+ * │   └── incrementTopicQuestionCount
+ * │
+ * ├── Exam Management
+ * │   ├── addExam
+ * │   ├── getExams
+ * │   ├── getExam
+ * │   └── deleteExam
+ * │
+ * └── Result Management
+ *     ├── saveExamResult
+ *     ├── getUserExamResults
+ *     ├── getExamResults
+ *     └── getUserExamResult
+ */
+
+/**
+ * Ensures the Exams table exists in DynamoDB
+ * @async
+ * @returns {Promise<void>}
+ * @throws {Error} If table creation fails
+ */
 export const ensureExamTableExists = async () => {
   try {
     await ddbClient.send(
@@ -43,6 +127,13 @@ export const ensureExamTableExists = async () => {
   }
 };
 
+
+/**
+ * Ensures both ExamQuestions and Exams tables exist
+ * @async
+ * @returns {Promise<void>}
+ * @throws {Error} If table creation fails
+ */
 export const ensureExamTablesExist = async () => {
   try {
     // Ensure ExamQuestions table
@@ -115,6 +206,12 @@ export const ensureExamTablesExist = async () => {
   }
 };
 
+/**
+ * Ensures the Topics table exists in DynamoDB
+ * @async
+ * @returns {Promise<void>}
+ * @throws {Error} If table creation fails
+ */
 const cleanListOfMaps = (list) => {
   if (!Array.isArray(list)) return [];
   return list.map(item => {
@@ -504,7 +601,13 @@ export const deleteQuestion = async (examId, questionId) => {
 };
 // Other methods like saveExamResult, getUserExamResults remain the same
 /**
- * Save exam results
+ * Saves an exam result for a user
+ * @async
+ * @param {string} userId - ID of the user
+ * @param {string} examId - ID of the exam
+ * @param {Object} resultData - Exam result data
+ * @returns {Promise<void>}
+ * @throws {Error} If saving fails
  */
 export const saveExamResult = async (userId, examId, resultData) => {
   // ensureExamQuestionsTable();
@@ -533,7 +636,11 @@ export const saveExamResult = async (userId, examId, resultData) => {
 };
 
 /**
- * Get exam results for a user
+ * Retrieves exam results for a specific user
+ * @async
+ * @param {string} userId - ID of the user
+ * @returns {Promise<Array>} Array of exam results
+ * @throws {Error} If fetching fails
  */
 export const getUserExamResults = async (userId) => {
   const params = {
@@ -549,7 +656,11 @@ export const getUserExamResults = async (userId) => {
 };
 
 /**
- * Get results for a specific exam
+ * Gets results for a specific exam
+ * @async
+ * @param {string} examId - ID of the exam
+ * @returns {Promise<Array>} Array of exam results
+ * @throws {Error} If fetching fails
  */
 export const getExamResults = async (examId) => {
   const params = {
@@ -566,7 +677,12 @@ export const getExamResults = async (examId) => {
 };
 
 /**
- * Get specific exam result for a user
+ * Gets a specific exam result for a user
+ * @async
+ * @param {string} userId - ID of the user
+ * @param {string} examId - ID of the exam
+ * @returns {Promise<Object>} Exam result object
+ * @throws {Error} If fetching fails
  */
 export const getUserExamResult = async (userId, examId) => {
   const params = {
@@ -581,7 +697,14 @@ export const getUserExamResult = async (userId, examId) => {
   return response.Item;
 };
 
-
+/**
+ * Adds a new exam
+ * @async
+ * @param {Object} examData - Exam data
+ * @param {string} examData.createdBy - User ID of exam creator
+ * @returns {Promise<Object>} Created exam object with ID
+ * @throws {Error} If creation fails
+ */
 export const addExam = async (examData) => {
   await ensureExamTableExists();
   const examId = Date.now().toString();
@@ -602,6 +725,12 @@ export const addExam = async (examData) => {
   return { id: examId };
 };
 
+/**
+ * Gets all exams
+ * @async
+ * @returns {Promise<Array>} Array of exam objects
+ * @throws {Error} If fetching fails
+ */
 export const getExams = async () => {
   await ensureExamTableExists();
   
@@ -623,6 +752,13 @@ export const getExams = async () => {
   }
 };
 
+/**
+ * Gets a specific exam by ID
+ * @async
+ * @param {string} examId - ID of the exam
+ * @returns {Promise<Object>} Exam object
+ * @throws {Error} If exam not found or fetch fails
+ */
 export const getExam = async (examId) => {
   const params = {
     TableName: "Exams",
@@ -645,6 +781,13 @@ export const getExam = async (examId) => {
   }
 };
 
+/**
+ * Deletes an exam
+ * @async
+ * @param {string} examId - ID of the exam to delete
+ * @returns {Promise<Object>} Object containing deleted exam ID
+ * @throws {Error} If deletion fails
+ */
 export const deleteExam = async (examId) => {
   const params = {
     TableName: "Exams",

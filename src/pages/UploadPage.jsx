@@ -5,7 +5,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../firebase/config';
-import { ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { ref, uploadBytes, getDownloadURL, listAll, getMetadata, uploadBytesResumable } from 'firebase/storage';
 import { storage } from '../firebase/config';
 import { getTopics, addTopic } from '../services/questionService';
@@ -287,20 +286,6 @@ function UploadPage() {
       setUploadProgress(0);
       alert('Upload failed: ' + error.message);
     }
-  };
-
-  const resetForm = () => {
-    setFormData({
-      batch: '',
-      subject: '',
-      topic: '',
-      subtopic: '',
-    });
-    setFile(null);
-    setUploadProgress(0);
-    setUploadSpeed(0);
-    setTimeRemaining(null);
-    uploadRef.current = null;
   };
 
   return (

@@ -315,7 +315,8 @@ function AttendancePage() {
             border: '1px solid #ddd',
             marginLeft: '16px',
             flex: 1,
-            fontSize: '16px'
+            fontSize: '16px',
+            marginBottom: '16px'
           }}
         />
       </div>

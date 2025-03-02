@@ -100,7 +100,7 @@ function VideoListPage() {
   const [simName, setSimName] = useState('');
   const [simUrl, setSimUrl] = useState('');
   const [topicSimulations, setTopicSimulations] = useState({});
-  const [iframeUrl, setIframeUrl] = useState("https://staging.vignamlabs.com/openSimulation/SIM-f631d706-f147-4a65-a830-17bf99f175ab?def_token=INST-435fb01b-4964-4638-b38c-1fec7c63a2eb");
+  const [iframeUrl, setIframeUrl] = useState("https://app.vignamlabs.com/openSimulation/SIM-4e8c7a62-b9f3-4c71-a9d5-61c4f8d72e45?def_token=INST-5ccefcb8-1294-4adc-9975-a18b3c0b7c8d");
 
 
   const navigate = useNavigate();
