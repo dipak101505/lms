@@ -570,8 +570,41 @@ export const getQuestionById = async (examId, questionId) => {
 
 export const deleteQuestion = async (examId, questionId) => {
   try {
+    // First get the exam to retrieve its questions array
+    const getExamParams = {
+      TableName: "Exams",
+      Key: {
+        PK: "EXAM#ALL",
+        SK: `EXAM#${examId}`
+      }
+    };
+
+    const examResponse = await dynamoDB.send(new GetCommand(getExamParams));
+    
+    if (!examResponse.Item) {
+      throw new Error(`Exam ${examId} not found`);
+    }
+
+    // Remove questionId from questions array
+    const updatedQuestions = (examResponse.Item.questions || [])
+      .filter(id => id !== questionId);
+
+    // Update exam with new questions array
+    const updateExamParams = {
+      TableName: "Exams",
+      Key: {
+        PK: "EXAM#ALL",
+        SK: `EXAM#${examId}`
+      },
+      UpdateExpression: "SET questions = :questions, examMetadata.questionCount = :count",
+      ExpressionAttributeValues: {
+        ":questions": updatedQuestions,
+        ":count": updatedQuestions.length
+      }
+    };
+
     // Delete from ExamQuestions table
-    const questionParams = {
+    const deleteQuestionParams = {
       TableName: "ExamQuestions",
       Key: {
         PK: `QUESTION#${questionId}`,
@@ -579,18 +612,10 @@ export const deleteQuestion = async (examId, questionId) => {
       }
     };
 
-    // Delete from Exams table
-    const examParams = {
-      TableName: "Exams",
-      Key: {
-        PK: `EXAM#${examId}`,
-        SK: " "
-      }
-    };
-
+    // Execute both operations
     await Promise.all([
-      dynamoDB.send(new DeleteCommand(questionParams)),
-      dynamoDB.send(new DeleteCommand(examParams))
+      dynamoDB.send(new UpdateCommand(updateExamParams)),
+      dynamoDB.send(new DeleteCommand(deleteQuestionParams))
     ]);
 
     console.log('Question deleted successfully');
@@ -599,6 +624,7 @@ export const deleteQuestion = async (examId, questionId) => {
     throw error;
   }
 };
+
 // Other methods like saveExamResult, getUserExamResults remain the same
 /**
  * Saves an exam result for a user
