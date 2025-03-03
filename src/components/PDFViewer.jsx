@@ -157,7 +157,7 @@ function PDFViewer() {
   };
 
   const zoomOut = () => {
-    setScale(prevScale => Math.max(prevScale - 0.05, 0.25));
+    setScale(prevScale => Math.max(prevScale - 0.05, 0.15));
   };
 
   if (loading) {
