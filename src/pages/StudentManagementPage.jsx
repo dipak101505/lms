@@ -624,7 +624,7 @@ function StudentManagementPage() {
                         >
                           Edit
                         </button>
-                        <button
+                        {!isFranchise && <button
                           onClick={() => handleDelete(student)}
                           style={{
                             padding: '6px 12px',
@@ -644,7 +644,7 @@ function StudentManagementPage() {
                           }}
                         >
                           Delete
-                        </button>
+                        </button>}
                       </td>
                     </tr>
                   ))}
