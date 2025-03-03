@@ -572,8 +572,9 @@ const ModalButton = styled.button`
         setTimeLeft(0);
         return;
       }
-  
-      setTimeLeft(remaining);
+      if (remaining <= 60 || remaining % 60 === 0) {
+        setTimeLeft(remaining);
+      }
       frameRef.current = requestAnimationFrame(tick);
     }
   
