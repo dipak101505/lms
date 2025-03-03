@@ -1032,7 +1032,7 @@ const EditExamPage = () => {
               </div>
 
               {/* Solution Toggle */}
-              {question.solutionContent?.length > 0 && (
+              {question?.solutionContent?.length > 0 && (
                 <div className="solution-container border-t mt-4">
                   <div 
                     onClick={() => toggleSolution(question.id)}
@@ -1060,8 +1060,8 @@ const EditExamPage = () => {
               )}
 
               <div className="metadata mt-2 text-sm text-gray-600">
-              Topic:{" "}{question.metadata?.topic} | Marks:{" "}
-                              {question.metadata?.marks?.correct} {" "} | Negative Marks:{" "}{question.metadata?.marks?.incorrect} | Correct Answer:{" "}{question?.correctAnswer}
+              Topic:{" "}{question?.metadata?.topic} | Marks:{" "}
+                              {question?.metadata?.marks?.correct} {" "} | Negative Marks:{" "}{question?.metadata?.marks?.incorrect} | Correct Answer:{" "}{question?.correctAnswer}
               </div>
             </div>
           ))}

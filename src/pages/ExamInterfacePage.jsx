@@ -433,6 +433,34 @@ const ModalButton = styled.button`
   }
 `;
 
+const LatexRenderer = ({ content }) => {
+  // Split content by LaTeX delimiters
+  const parts = content.split(/(\$[^\$]+\$|\\\\)/g);
+  
+  return (
+    <div className="latex-content">
+      {parts.map((part, index) => {
+        if (part.startsWith('$') && part.endsWith('$')) {
+          // Inline math
+          return (
+            <Katex
+              key={index}
+              math={part.slice(1, -1)}
+              settings={{ throwOnError: false }}
+            />
+          );
+        } else if (part === '\\\\') {
+          // Line break
+          return <br key={index} />;
+        } else {
+          // Regular text with possible LaTeX commands
+          return <span key={index}>{part}</span>;
+        }
+      })}
+    </div>
+  );
+};
+
 function ExamInterfacePage() {
   const location = useLocation();
   // const examData = location.state?.examData;
@@ -920,7 +948,8 @@ const ContentRenderer = ({ content }) => {
     case CONTENT_TYPES.TEXT:
       return <span className="text-content">{content.value}</span>;
     case CONTENT_TYPES.LATEX:
-      return <Katex math={content.value} />;
+      // return <Katex math={content.value} />;
+      return <LatexRenderer content={content.value} />;
     case CONTENT_TYPES.IMAGE:
       return (
         <div>
@@ -1071,14 +1100,18 @@ const enterFullscreen = async () => {
                     const currentValue = ['A', 'B', 'C', 'D'][optIndex];
                     const selectedValue = selectedAnswers.get(currentTopic)?.get(questionId);
                     return (
-                      <div key={optIndex} style={{ display: 'block', marginBottom: '10px' }}>
+                      // Replace the existing option rendering code with this:
+                      <div key={optIndex} style={{ 
+                        display: 'flex', // Changed from 'block' to 'flex'
+                        alignItems: 'center', // Align items vertically
+                        gap: '8px', // Add space between radio and content
+                        marginBottom: '10px'
+                      }}>
                         <input 
                           type="radio" 
-                          name={`question${currentSlide + 1}`} // Unique name per question
+                          name={`question${currentSlide + 1}`}
                           value={currentValue}
-                          checked={
-                            selectedValue === currentValue
-                          }
+                          checked={selectedValue === currentValue}
                           onChange={(e) => {
                             if (e.target.checked) {
                               markAnswered(currentSlide);
@@ -1092,10 +1125,13 @@ const enterFullscreen = async () => {
                               });
                             }
                           }}
+                          style={{ flexShrink: 0 }} // Prevent radio button from shrinking
                         />                    
-                        {option.contents?.map((content, i) => (
-                          <ContentRenderer key={i} content={content} />
-                        ))}
+                        <div style={{ display: 'inline-block' }}> {/* Wrap content in a div */}
+                          {option.contents?.map((content, i) => (
+                            <ContentRenderer key={i} content={content} />
+                          ))}
+                        </div>
                       </div>
                     );
                   })}
