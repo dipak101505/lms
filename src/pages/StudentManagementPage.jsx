@@ -9,6 +9,7 @@ import EditStudentForm from '../components/EditStudentForm';
 import ZenithForm from '../components/ZenithForm';
 import InvoiceForm from '../components/InvoiceForm';
 import { useAuth } from '../contexts/AuthContext';
+import { deleteStudent } from '../services/studentService';
 
 function StudentManagementPage() {
   const [activeTab, setActiveTab] = useState('students');
@@ -83,11 +84,12 @@ function StudentManagementPage() {
     return matchesName && matchesBatch && matchesCentre;
   });
 
-  const handleDelete = async (studentId) => {
+  const handleDelete = async (student) => {
     if (window.confirm('Are you sure you want to delete this student?')) {
       try {
-        await deleteDoc(doc(db, 'students', studentId));
-        setStudents(students.filter(student => student.id !== studentId));
+        await deleteDoc(doc(db, 'students', student.id));
+        await deleteStudent(student.email);
+        setStudents(students.filter(stud => stud.id !== student.id));
       } catch (error) {
         console.error('Error deleting student:', error);
         alert('Error deleting student. Please try again.');
@@ -623,7 +625,7 @@ function StudentManagementPage() {
                           Edit
                         </button>
                         <button
-                          onClick={() => handleDelete(student.id)}
+                          onClick={() => handleDelete(student)}
                           style={{
                             padding: '6px 12px',
                             backgroundColor: 'transparent',

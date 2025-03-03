@@ -79,6 +79,19 @@ export const ensureStudentTableExists = async () => {
     return { id: studentData.email };
   };
   
+  //delete student
+export const deleteStudent = async (email) => {
+    const params = {
+      TableName: "Students",
+      Key: {
+        PK: "STUDENT#ALL",
+        SK: `STUDENT#${email}`
+      }
+    };
+    await dynamoDB.send(new DeleteCommand(params));
+    return { id: email };
+};
+
   export const getStudentByEmail = async (email) => {
     const params = {
       TableName: "Students",
