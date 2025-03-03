@@ -1334,9 +1334,9 @@ function VideoListPage() {
         }}
       /> */}
       {<div style={{
-        width: '100%',
-        height: '800px',
-        margin: '20px 0',
+        width: '90vw',
+        height: '900px',
+        margin: '5px 0',
         border: '1px solid #e5e7eb',
         borderRadius: '8px',
         overflow: 'hidden',
